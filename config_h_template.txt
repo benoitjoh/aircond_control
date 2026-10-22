@@ -1,0 +1,48 @@
+// definition of parameters of hardwaresetup
+// create a copy config.h and adapt it
+
+
+// PINS for sensor input ------------
+#define ANALOG_TEMP_1_PIN 2
+#define ANALOG_TEMP_2_PIN 1
+
+#define SIGNAL_PIN 4
+
+// Keyboard -------------------------
+#define PIN_ANALOG_KBD   3  // ad0 for input of analog Keyboard...
+#define KBD_NR_OF_KEYS   9  // how many keys are built up in the circuit
+
+// variables for the keys
+#define KEY_ENTER 0
+#define KEY_RIGHT 4 
+#define KEY_LEFT  3
+#define KEY_UP    1
+#define KEY_DOWN  2
+
+#define KEY_ENTER_LONG (128 + KEY_ENTER) 
+#define KEY_RIGHT_LONG (128 + KEY_RIGHT)  
+#define KEY_LEFT_LONG (128 + KEY_LEFT) 
+#define KEY_UP_LONG (128 + KEY_UP) 
+#define KEY_DOWN_LONG (128 + KEY_DOWN) 
+
+// Display ---------------------------
+
+#define USE_STANDARD_LCD_LIBRARY  // which library used?
+
+
+#ifdef USE_STANDARD_LCD_LIBRARY
+  // use LiquidChrystal.h ...
+  #define LCD_RS 8
+  #define LCD_E  7
+  #define LCD_D4 9
+  #define LCD_D5 10
+  #define LCD_D6 11
+  #define LCD_D7 12
+  #define LCD_BACKLIGHT 6
+#else
+  // ... or use LiquidCrystal_SR2W.h
+  #define LCD_DATA 12
+  #define LCD_CLOCK  11
+#endif  
+
+
