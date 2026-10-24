@@ -1,25 +1,12 @@
+// Menu for set the datetime in timeLoop
 
+#define SET_DT_CURSOR_POS_CNT 6
 
-
-
-#define SETTIME_KEY_ENTER (20 + KEY_ENTER) 
-#define SETTIME_KEY_RIGHT (20 + KEY_RIGHT)  
-#define SETTIME_KEY_LEFT  (20 + KEY_LEFT) 
-#define SETTIME_KEY_UP    (20 + KEY_UP) 
-#define SETTIME_KEY_DOWN  (20 + KEY_DOWN) 
-
-
-byte settingIdx = 1;
-const byte cursPos[6] = {0, 1, 4, 9, 12, 15};
-bool setInitialized = false;
+byte cursor_index_time_set = 1;
+const byte cursPos_time_set[SET_DT_CURSOR_POS_CNT] = {0, 1, 4, 9, 12, 15};
 
 
 void display_setDateTime() {
-  if (!setInitialized) {
-    lcd.cursor();
-    lcd.blink();
-    setInitialized = true;
-  }
 
     lcd.clear();
     lcd.setCursor(0,0);
@@ -28,32 +15,33 @@ void display_setDateTime() {
     /// pos        1  4    9  c  f
     /// show     "dd.mm.yyyy hh:mm" the :ss is cut of
     lcd.print(tmh.getDayMonYear()+ " " + tmh.getHrsMinSec());
-    lcd.setCursor(cursPos[settingIdx], 1);
+    lcd.setCursor(cursPos_time_set[cursor_index_time_set], 1);
 }
 
 void handleKeystroke_setDateTime() {
-  switch (kbdValue) 
-    {
-    case SETTIME_KEY_ENTER:   // enter (key 0 in set date time mode
-      // finish
-      displayMode = 0;
-      kbdValue = 255; 
-      lcd.noCursor();
-      lcd.noBlink();
-      setInitialized = false;
-      tmh.resetSecToZero();
-      storeEEprom();
-      break;
-    case SETTIME_KEY_RIGHT: // right (key 1 in set date time mode
-        settingIdx++;
-        if (settingIdx > 5) { settingIdx = 1; }
+    lcd.cursor();
+    lcd.blink();
+
+    switch (kbdValue) {
+    case KEY_ENTER:   // enter (key 0 in set date time mode
+        // finish
+        displayMode = 0;
+        kbdValue = 255; 
+        lcd.noCursor();
+        lcd.noBlink();
+        tmh.resetSecToZero();
+        storeEEprom();
         break;
-    case SETTIME_KEY_LEFT: // left (key 2 in set date time mode
-        settingIdx--;
-        if (settingIdx < 1) { settingIdx = 5; }
+    case KEY_RIGHT: // right (key 1 in set date time mode
+        cursor_index_time_set++;
+        if (cursor_index_time_set >= SET_DT_CURSOR_POS_CNT) { cursor_index_time_set = 1; }
         break;
-    case SETTIME_KEY_UP: // up 
-        switch (settingIdx) {
+    case KEY_LEFT: // left (key 2 in set date time mode
+        cursor_index_time_set--;
+        if (cursor_index_time_set < 1) { cursor_index_time_set = SET_DT_CURSOR_POS_CNT - 1; }
+        break;
+    case KEY_UP: // up 
+        switch (cursor_index_time_set) {
             case 1: //day
                 tmh.incrementDayCounter(1);
                 break;
@@ -71,8 +59,8 @@ void handleKeystroke_setDateTime() {
                 break;
         }
         break;
-    case SETTIME_KEY_DOWN: // down 
-        switch (settingIdx) {
+    case KEY_DOWN: // down 
+        switch (cursor_index_time_set) {
             case 1: //day
                 tmh.incrementDayCounter(-1);
                 break;

@@ -18,7 +18,10 @@ Based on Arduino
 
 # requirements
 
-get analogKbd and phaseCutCtrl and put it in the library directory of Arduino IDE
+get analogKbd and phaseCutCtrl and put it in the library directory of Arduino IDE:
 
 git clone https://github.com/benoitjoh/analogKbd 
 git clone https://github.com/benoitjoh/phaseCutCtrl 
+
+install Adafruit_MCP9808 library
+

@@ -1,5 +1,6 @@
-/*  Controller for MACS aircondinioning system
-    
+// Controller for MACS aircondinioning system
+
+/*      
     * includes 
     * timer 
     * 4 Temperatur sensors
@@ -8,6 +9,13 @@
     * solid state relais for cooling water pum
     * 12V switch for cooler fans (5 * 1.5W fan)
     * 
+
+    Display
+    ----------------
+    [20-25°] kü  VKP   [temp range], kü|hz, Ventilator, Kompressor, Pumpe 
+    20.2° AUTO 12:23   akt. temp, AUTO/EIN/AUS, Time
+    ----------------
+    
     */
 
 #include "config.h"
@@ -16,29 +24,29 @@
 
 
 // alarm for second temp sensor
-// alarm limit defined in storage.cfg[CONF_FRIDGE_ALARM]
-boolean fridge_alarm = false;
-boolean fridge_quit = false;
+// alarm limit defined in storage.cfg[CONF_TEMP_ALARM]
+boolean temp_alarm = false;
 
-unsigned long power;
 unsigned long nowMillis;
-unsigned long lastIntervalStart;
-unsigned long lastTimeDeltaMillis;
 
 int temp = 0;
+int temp_1 = 0;
 int temp_2 = 0;
 
+byte function_mode = 0; // 0: cooling   1: heating
+String function_mode_name[2] {"kü", "hz"};
+
+byte run_mode = 0; // 0: off  1:  on  2: clock controlled
+String run_mode_name[3] {" AUS", " EIN", "AUTO"};
 
 byte displayMode = 0; 
 long resetDisplayModeSeconds = 0;
-byte actualMonth = 0;
 
-char statusSign; 
 byte backlight = 1;
 
 
 // --- liquid crystal display driver from LiquidCrystal.h or LiquidCrystal_SR2W.h ---------------------------------------------
-#ifdef USE_STANDARD_LCD_LIBRARY
+#if USE_STANDARD_LCD_LIBRARY == 1
     // using the standard LCD Library
     #include <LiquidCrystal.h>
     //            lcd(rs, e, d4, d5, d6, d7);   backlight: pin D6
@@ -69,6 +77,18 @@ byte kbdValue = 255; //the value that is read from keyboard 255 is neutral value
 #include<TimeLoop.h>
 TimeLoop tmh(0);
 
+// --- library for MCP9808 temperature sensor 
+#if USE_MCP9808_SENSOR == 1
+    #include <Wire.h>
+    #include "Adafruit_MCP9808.h"
+
+    // Create the MCP9808 temperature sensor object
+    Adafruit_MCP9808 mcp_tempsensor = Adafruit_MCP9808();
+#endif
+
+#include <PhaseCutCtrl.h>
+// Note: PhaseCutCtrl is preinstantiated as PCCtrl. Initialization later in setup()
+
 // ---- string helper   ---------------------------------------------------------------  
 String leftFill(String a, byte wantedLen, String fillLetter) {
     // fills a string with letters from left side that the resulting length is reached
@@ -92,6 +112,18 @@ byte divideAndRoundBy(unsigned long value, int dividend) {
         }
 }
 
+
+// --- check function if 235V is disconnected -----------------------------------
+void checkAcDisconnected() {
+    if ( !PCCtrl.acNetIsAlive() ) {   
+        storeEEprom();
+        lcd.setCursor(0, 1);
+        lcd.print("Net disconnected.");
+        delay(3000);
+        }
+}
+
+
 // EEPROM ------------------------------------------------------------------
 #include <EEPROM.h>
 
@@ -102,18 +134,26 @@ byte divideAndRoundBy(unsigned long value, int dividend) {
 struct {
 long secondsCounter = 79200;
 long dayCounter = 1555;
+byte temp_min = 20;
+byte temp_max = 25;
+byte switch_times[4][3] = { 
+    {6, 20, 1}, {10, 30, 0}, {0, 0, 1}, {0, 0, 0} }; // {hour, min, up/down 1|0 }
 int cfg[CONF_ADDR_COUNT] = {450, -10, 9, 0, 0, 0, 0, 0, };
 } storage;
 
 // *** config paramters adjustable in configMenu ************************************** //
 #define CONF_TIMECORR_MS_PER_HOUR 0
-#define CONF_FRIDGE_ALARM 1
-#define CONF_V2 2
+#define CONF_TEMP_ALARM 1
+#define CONF_FAN_SPEED 2
 #define CONF_V3 3
 #define CONF_V4 4
 #define CONF_V5 5
 #define CONF_V6 6
 #define CONF_V7 7
+
+#define CHAR_HOOK 1
+#define CHAR_ARROW_UP 2
+#define CHAR_ARROW_DOWN 3
 
 void loadEEprom(int offset) {
     lcd.setCursor(0,1);
@@ -124,10 +164,9 @@ void loadEEprom(int offset) {
     tmh.setSecondsCounter(storage.secondsCounter);
     tmh.setDayCounter(storage.dayCounter);
     tmh.setMsPerHourCorrection(storage.cfg[CONF_TIMECORR_MS_PER_HOUR]);
-
     delay(800);
-
     }
+
 
 void storeEEprom() {
     // apply configuration changes, and store all to eprom 
@@ -136,7 +175,6 @@ void storeEEprom() {
     storage.secondsCounter = tmh.getSecondsCounter();
     storage.dayCounter = tmh.getDayCounter();
     tmh.setMsPerHourCorrection(storage.cfg[CONF_TIMECORR_MS_PER_HOUR]);
-    
     
     EEPROM.put(EE_OFFSET, storage);
     lcd.setCursor(0,1);
@@ -155,25 +193,33 @@ void setup() {
 
     lcd.noCursor();
 
-    lcd.print(F(" # MACS 7000.jb #")); 
+    lcd.print(F("# MACS 7000jb #")); 
     lcd.setCursor(0,1);
     lcd.print(VERSION);
     delay(2000);
 
     loadEEprom(EE_OFFSET );
-    actualMonth = tmh.getMonth(0);
     setBacklight(1);
 
     pinMode(13, OUTPUT);
     
     // serial device for debugging purpose!
     Serial.begin(9600);
-    while (!Serial)
-    {
+    while (!Serial) {
         ; // wait for serial Pin to connect. otherwise reset if serial console is started :-/
         }
-        
-    statusSign = 32;
+
+    #if USE_MCP9808_SENSOR == 1
+        if (!mcp_tempsensor.begin(0x18)) {
+            lcd.setCursor(0,1);
+            lcd.print(F("No MCP9808 conn!"));
+            while (1);
+        }
+        mcp_tempsensor.setResolution(2); // sets the resolution to 0.125 °C
+    #endif
+
+    // Phase cut Ctrl module (for regulation of the 235V fan motor)
+    PCCtrl.initialize(PIN_IN_ACZERO_SIGNAL, PIN_PCC_OUT_A);
 
 }
 
@@ -183,14 +229,17 @@ void setup() {
 void loop() {
     nowMillis = millis();
     // ---- do something ---------
+    
+    delay(50); // do he loop max 20 times per second
+    checkAcDisconnected();
 
     // update the timeloop handler. state: 0: nothing; 1: 100ms passed; 2: 1s passed; 3: midnight
-    byte timeState = tmh.actualize(); 
+    byte time_state = tmh.actualize(); 
 
-    if ( timeState >= 1 ) {
+    if ( time_state >= 1 ) {
         // --- 100ms has passed ---- 
 
-        if ( fridge_alarm ) {
+        if ( temp_alarm ) {
             backlight = !backlight;
             }
         else {
@@ -199,25 +248,28 @@ void loop() {
 
         setBacklight(backlight);
 
-        if ( timeState >= 2 ) {
+        if ( time_state >= 2 ) {
             // --- 1 sec has passed ---- 
 
             PORTB |=  B00100000; //set pin13 to HIGH, give led a quick blink each second     
-
             delayMicroseconds(50);
             PORTB &= ~B00100000; //set pin13 to LOW 
             
-            temp = read_pt1000(analogRead(ANALOG_TEMP_1_PIN));
+            // read sensors
+#if USE_MCP9808_SENSOR == 1
+            temp = mcp_tempsensor.readTempC();
+#endif
+            temp_1 = read_pt1000(analogRead(ANALOG_TEMP_1_PIN));
             temp_2 = read_pt1000(analogRead(ANALOG_TEMP_2_PIN));
 
-            
+            PCCtrl.set_pcc(storage.cfg[CONF_FAN_SPEED]);
+
             if ( tmh.getSecondsCounter() % 3600 == 1) {
-                // ----- new hour started... so reset the actual counter 
+                // ----- new hour started... 
                 ; 
                 }
 
-
-            if ( timeState >= 3 ) {
+            if ( time_state >= 3 ) {
                 // ----  action at midnight:  --------------------------
                 storeEEprom();
                 }
@@ -235,20 +287,31 @@ void loop() {
             {
             case 0:
                 // -- display normal information each second
+                //     [20-25°] kü  VKP   [temp range], kü|hz, Ventilator, Kompressor, Pumpe 
+                //     20.2° AUTO 12:23   akt. temp, AUTO/EIN/AUS, Time
+
                 lcd.setCursor(0,0);
-                lcd.print(leftFill(String(111), 4, " ") + "W ");
-                lcd.write(statusSign);
-                lcd.print(" " + leftFill(String(111, 2), 5, " ") + "kWh");
+                lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "\xdf-" +
+                            leftFill(String(storage.temp_max), 2, " ") + "\xdf] ");
+                lcd.print(function_mode_name[function_mode] + "  ");
+                lcd.print("VKP");
                 lcd.setCursor(0,1);
-                lcd.print(leftFill(String(temp), 2, " ") + "\xdf" + "" +
-                          leftFill(String(temp_2), 3, " ") + "\xdf" + " " +
-                          tmh.getHrsMinSec());
+                lcd.print(leftFill(String(18.6, 1), 4, " ") + "\xdf" + " ");
+                lcd.print(run_mode_name[run_mode] + " ");
+                lcd.print(tmh.getHrsMinSec());
                 break;
 
-            case 2:
-                // -- display overall kWh
-                lcd.clear();
-                lcd.print("Ges.: " + leftFill(String(111, 0), 6, " ") + " kWh");
+            case 1 ... 2:
+                // -- display switch times
+                display_set_switch_time(displayMode);
+                break; 
+
+            case 3:
+                // -- display temperatur settings
+                //display_set_temp_limits(displayMode);
+                lcd.setCursor(0,0);
+                lcd.write(CHAR_ARROW_UP);
+
                 break; 
 
             case 30:
@@ -271,15 +334,12 @@ void loop() {
                 // -- set Time and date
                 display_setDateTime();
                 break;
-                
-
-
             }
         
-        if (displayMode < 30 and displayMode > 1 and
+        if (displayMode > 0 and displayMode < 30 and
             tmh.getSecondsCounter() > resetDisplayModeSeconds ) {
-            // fall back to standard display after 5 seconds exept display mode over 30 
-            // these displays should be manually reset
+            // fall back to standard display after 5 defined time
+            // these disp321lays should be manually reset
             displayMode = 0;
             }
 
@@ -293,65 +353,73 @@ void loop() {
     // ---- deal with an eventually pressed key -----------------------
     kbdValue = kbd.read();
 
-        if (kbdValue != 255) { //key is pressed
-            // reset fridge alarm
-            fridge_alarm = false; 
-            fridge_quit = true; 
+    if (kbdValue != 255) { //key is pressed
+        // reset fridge alarm
+        temp_alarm = false; 
 
-            if (displayMode == 99) {
-                // if its 99 (set date time) then keys for set date time is active
-                // keys 0, 1, 2, 3, 4 as 20, 21, 22, 23 ,24 
-                kbdValue += 20;
+        switch (displayMode) {
+            case 1 ... 2:
+                handleKeystroke_set_switch_time(displayMode);
+                break;
+            case 3:
+                //handleKeystroke_set_temp_limits();
+                break;
+            case 98:
+                handleKeystroke_setConfigMenu();
+                break;
+            case 99:
+                handleKeystroke_setDateTime();
+                break;
+
+            default:
+                switch (kbdValue) {
+                    case KEY_ENTER:
+                        storeEEprom();
+                        break;
+
+                    case KEY_RIGHT:
+                        break;
+
+                    case KEY_LEFT:
+                        displayMode = 30; //debug
+                        resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                        break;
+
+                    case KEY_UP:
+                        break;
+
+                    case KEY_DOWN:
+                        break;
+
+
+                    case KEY_LEFTUP:
+                        displayMode--; // flip through the pages
+                        if ( displayMode < 0 ) {
+                            displayMode = 3;
+                        }
+                        resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                        break;
+
+                    case KEY_LEFTDOWN:
+                        displayMode++; // flip through the pages
+                        if ( displayMode > 3 ) {
+                            displayMode = 0;
+                        }
+                        resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                        break;
+
+                    case KEY_ENTER_LONG:
+                        displayMode = 99; // start setDateTime 
+                        break;
+
+                    case KEY_DOWN_LONG:
+                        displayMode = 98; // start setConfig 
+                        break;
+
+                    default:
+                        break;
                 }
-
-            if (displayMode == 98) { // set config menu
-                kbdValue += 30;
-                }
-            Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
-            
-            switch (kbdValue)
-                {
-                case KEY_ENTER:
-                    storeEEprom();
-                    break;
-
-                case KEY_RIGHT:
-                    displayMode += 2; // flip through the history pages
-                    if ( displayMode > 20 ) {
-                        displayMode = 0;
-                    }
-                    resetDisplayModeSeconds = tmh.getSecondsCounter() + 5;
-                    break;
-
-                case KEY_LEFT:
-                    displayMode = 30; //debug
-                    resetDisplayModeSeconds = tmh.getSecondsCounter() + 5;
-                    break;
-
-                case KEY_UP:
-                    // tmh.incrementSecondsCounter(60);
-                    break;
-
-                case KEY_DOWN:
-                    // tmh.incrementSecondsCounter(-60);
-                    break;
-
-                case KEY_ENTER_LONG:
-                    displayMode = 99; // start setDateTime 
-                    break;
-
-                case KEY_DOWN_LONG:
-                    displayMode = 98; // start setConfig 
-                    break;
-
-                case 20 ... 24: 
-                    handleKeystroke_setDateTime();
-                    break;
-
-                default:
-                    break;
-                }
-
-            handleKeystroke_setConfigMenu();
+                break;
         }
+    }
 }

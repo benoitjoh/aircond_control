@@ -5,16 +5,6 @@
 // 
 
 
-#define SETCONFIG_KEY_ENTER (30 + KEY_ENTER) 
-#define SETCONFIG_KEY_RIGHT (30 + KEY_RIGHT)  
-#define SETCONFIG_KEY_LEFT  (30 + KEY_LEFT) 
-#define SETCONFIG_KEY_UP    (30 + KEY_UP) 
-#define SETCONFIG_KEY_DOWN  (30 + KEY_DOWN) 
-#define SETCONFIG_KEY_UP_LONG    (30 + KEY_UP_LONG) 
-#define SETCONFIG_KEY_DOWN_LONG  (30 + KEY_DOWN_LONG) 
-
-
-
 
 byte codeAddr = 0; // index for setting the parameters
 int newVal = 0;
@@ -31,9 +21,9 @@ struct cfgBdr_t
 {
 //  min   max   step    name
     {-2000,2000,  1,  "ms/h"},
-    {-20,    0,   1,  "fAla"},
-    {10,    12,   2,  "dW/Ip"},
-    {0,    100,   5,  "v3"},
+    {-20,    0,   1,  "tAla"},
+    {0,    100,   1,  "fan"},
+    {0,    100,   1,  "v3"},
     {0,     3,    1,  "v4"},
     {0,     255,  5,  "v5"},
     {0,     255,  5,  "v6"},
@@ -76,36 +66,36 @@ void decValue(byte step) {
 
 void handleKeystroke_setConfigMenu() {
     switch (kbdValue) {
-    case SETCONFIG_KEY_ENTER:   // enter (key 0 in set date time mode
+    case KEY_ENTER:   // enter (key 0 in set date time mode
         // finish
         displayMode = 0;
         kbdValue = 255; 
         storeEEprom();
         break;
         
-    case SETCONFIG_KEY_RIGHT:
+    case KEY_RIGHT:
         codeAddr++;
         if (codeAddr >= CONF_ADDR_COUNT) { codeAddr = 0; }
         break;
         
-    case SETCONFIG_KEY_LEFT: 
+    case KEY_LEFT: 
         if (codeAddr == 0) { codeAddr = CONF_ADDR_COUNT; }
         codeAddr--;
         break;
         
-    case SETCONFIG_KEY_UP: //increment value
+    case KEY_UP: //increment value
         incValue(cfgBoundary[codeAddr].step);
         break;
         
-    case SETCONFIG_KEY_UP_LONG: //increment value more
+    case KEY_UP_LONG: //increment value more
         incValue(cfgBoundary[codeAddr].step * 100);
         break;
         
-    case SETCONFIG_KEY_DOWN: //decrement value
+    case KEY_DOWN: //decrement value
         decValue(cfgBoundary[codeAddr].step);
         break;
 
-    case SETCONFIG_KEY_DOWN_LONG: //decrement value
+    case KEY_DOWN_LONG: //decrement value
         decValue(cfgBoundary[codeAddr].step * 100);
         break;
     }

@@ -2,6 +2,7 @@
 // userdefined chars
 
 
+
 uint8_t hook[8] = {
   B00000,
   B00000,
@@ -11,6 +12,28 @@ uint8_t hook[8] = {
   B00010,
   B10100,
   B01000
+};
+
+uint8_t up[8] = {
+  B00000,
+  B00100,
+  B01110,
+  B10101,
+  B00100,
+  B00100,
+  B00000,
+  B00000,
+};
+
+uint8_t down[8] = {
+  B00000,
+  B00000,
+  B00100,
+  B00100,
+  B10101,
+  B01110,
+  B00100,
+  B00000
 };
 
 uint8_t divise[8] = {
@@ -23,6 +46,7 @@ uint8_t divise[8] = {
   B00000,
   B00000
 };
+
 uint8_t frown[8] = {
   B00000,
   B00000,
@@ -49,8 +73,8 @@ uint8_t degCentigree[8] = {
 void init_lcd() {
   lcd.begin(16,2);
   lcd.createChar(1, hook);
-  lcd.createChar(2, frown);
-  lcd.createChar(3, degCentigree);
+  lcd.createChar(2, up);
+  lcd.createChar(3, down);
   lcd.createChar(4, divise);
   lcd.clear();
   lcd.home();   

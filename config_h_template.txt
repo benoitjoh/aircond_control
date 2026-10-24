@@ -3,10 +3,9 @@
 
 
 // PINS for sensor input ------------
-#define ANALOG_TEMP_1_PIN 2
-#define ANALOG_TEMP_2_PIN 1
-
-#define SIGNAL_PIN 4
+#define ANALOG_TEMP_1_PIN 1
+#define ANALOG_TEMP_2_PIN 2
+#define ANALOG_TEMP_3_PIN 3
 
 // Keyboard -------------------------
 #define PIN_ANALOG_KBD   3  // ad0 for input of analog Keyboard...
@@ -14,10 +13,15 @@
 
 // variables for the keys
 #define KEY_ENTER 0
-#define KEY_RIGHT 4 
-#define KEY_LEFT  3
 #define KEY_UP    1
 #define KEY_DOWN  2
+#define KEY_LEFT  3
+#define KEY_RIGHT 4 
+#define KEY_MID   5
+#define KEY_MIDLEFT  6
+#define KEY_LEFTUP 7
+#define KEY_LEFTDOWN 8
+
 
 #define KEY_ENTER_LONG (128 + KEY_ENTER) 
 #define KEY_RIGHT_LONG (128 + KEY_RIGHT)  
@@ -25,11 +29,12 @@
 #define KEY_UP_LONG (128 + KEY_UP) 
 #define KEY_DOWN_LONG (128 + KEY_DOWN) 
 
-// Display ---------------------------
-
-#define USE_STANDARD_LCD_LIBRARY  // which library used?
 
 
+// Hardware configuration for Display ---------------------------
+
+
+// #define USE_STANDARD_LCD_LIBRARY  // which library used?
 #ifdef USE_STANDARD_LCD_LIBRARY
   // use LiquidChrystal.h ...
   #define LCD_RS 8
@@ -44,5 +49,3 @@
   #define LCD_DATA 12
   #define LCD_CLOCK  11
 #endif  
-
-
