@@ -5,13 +5,13 @@
 byte cursor_index_time_set = 1;
 const byte cursPos_time_set[SET_DT_CURSOR_POS_CNT] = {0, 1, 4, 9, 12, 15};
 
-void init_setDateTime() {
+void init_set_date_time() {
     lcd.cursor();
     lcd.blink();
     byte cursor_index_time_set = 1;
 }
 
-void display_setDateTime() {
+void display_set_date_time() {
 
     lcd.clear();
     lcd.setCursor(0,0);
@@ -23,7 +23,7 @@ void display_setDateTime() {
     lcd.setCursor(cursPos_time_set[cursor_index_time_set], 1);
 }
 
-void handleKeystroke_setDateTime() {
+void handle_keystroke_set_date_time() {
     switch (kbdValue) {
     case KEY_ENTER:   // enter (key 0 in set date time mode
         // finish

@@ -44,27 +44,27 @@ void handleKeystroke_set_time_switch(byte index) {
         break;
       
     case KEY_RIGHT: // right (key 1 in set date time mode
-        cursor_index_ts_set = increment_byte_value(cursor_index_ts_set, SET_TS_CURSOR_POS_CNT - 1, 1);
+        cursor_index_ts_set = increment_byte_value(cursor_index_ts_set, 0, SET_TS_CURSOR_POS_CNT - 1, 1);
         break;
     case KEY_LEFT: // left (key 2 in set date time mode
-        cursor_index_ts_set = decrement_byte_value(cursor_index_ts_set, SET_TS_CURSOR_POS_CNT - 1, 1);
+        cursor_index_ts_set = decrement_byte_value(cursor_index_ts_set, 0, SET_TS_CURSOR_POS_CNT - 1, 1);
         break;
         
     case KEY_UP: // up 
         switch (cursor_index_ts_set) {
             // up switch time
             case 0: 
-                storage.switch_times[index][0] = increment_byte_value(storage.switch_times[index][0], 23, 1);
+                storage.switch_times[index][0] = increment_byte_value(storage.switch_times[index][0], 0, 23, 1);
                 break;
             case 1:
-                storage.switch_times[index][1] = increment_byte_value(storage.switch_times[index][1], 55, 5);
+                storage.switch_times[index][1] = increment_byte_value(storage.switch_times[index][1], 0, 55, 5);
                 break;
             // down switch time
             case 2: 
-                storage.switch_times[index+1][0] = increment_byte_value(storage.switch_times[index+1][0], 23, 1);
+                storage.switch_times[index+1][0] = increment_byte_value(storage.switch_times[index+1][0], 0, 23, 1);
                 break;
             case 3:
-                storage.switch_times[index+1][1] = increment_byte_value(storage.switch_times[index+1][1], 55, 5);
+                storage.switch_times[index+1][1] = increment_byte_value(storage.switch_times[index+1][1], 0, 55, 5);
                 break;
         }
         break;
@@ -73,29 +73,29 @@ void handleKeystroke_set_time_switch(byte index) {
         switch (cursor_index_ts_set) {
             //hour
             case 0: 
-                storage.switch_times[index][0] = decrement_byte_value(storage.switch_times[index][0], 24, 1);
+                storage.switch_times[index][0] = decrement_byte_value(storage.switch_times[index][0], 0, 24, 1);
                 break;
             case 1:
-                storage.switch_times[index][1] = decrement_byte_value(storage.switch_times[index][1], 55, 5);
+                storage.switch_times[index][1] = decrement_byte_value(storage.switch_times[index][1], 0, 55, 5);
                 break;
             // down switch time
             case 2: 
-                storage.switch_times[index+1][0] = decrement_byte_value(storage.switch_times[index+1][0], 24, 1);
+                storage.switch_times[index+1][0] = decrement_byte_value(storage.switch_times[index+1][0], 0, 24, 1);
                 break;
             //minute
             case 3:
-                storage.switch_times[index+1][1] = decrement_byte_value(storage.switch_times[index+1][1], 55, 5);
+                storage.switch_times[index+1][1] = decrement_byte_value(storage.switch_times[index+1][1], 0, 55, 5);
                 break;
         }
         break;
 
         case KEY_LEFTUP:
-            displayMode = decrement_byte_value(displayMode, 3, 1); // flip through the pages
+            displayMode = decrement_byte_value(displayMode, 0, 3, 1); // flip through the pages
             resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
             break;
 
         case KEY_LEFTDOWN:
-            displayMode = increment_byte_value(displayMode, 3, 1); // flip through the pages
+            displayMode = increment_byte_value(displayMode, 0, 3, 1); // flip through the pages
             resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
             break;
                 

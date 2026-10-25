@@ -282,8 +282,7 @@ void loop() {
             case 3:
                 // -- display temperatur settings
                 //display_set_temp_limits(displayMode);
-                lcd.setCursor(0,0);
-                lcd.write(CHAR_ARROW_UP);
+                display_set_temp_limit();
 
                 break; 
 
@@ -305,7 +304,7 @@ void loop() {
 
             case 99:
                 // -- set Time and date
-                display_setDateTime();
+                display_set_date_time();
                 break;
             }
         
@@ -336,14 +335,17 @@ void loop() {
                 handleKeystroke_set_time_switch(displayMode);
                 resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                 break;
-            case 399:
-                //handleKeystroke_set_temp_limits();
+            case 3:
+                handle_keystroke_set_temp_limit();
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                 break;
             case 98:
                 handleKeystroke_setConfigMenu();
-                break;
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+               break;
             case 99:
-                 handleKeystroke_setDateTime();
+                handle_keystroke_set_date_time();
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                 break;
 
             default:
@@ -367,22 +369,22 @@ void loop() {
                          break;
 
                     case KEY_MID:
-                        run_mode = increment_byte_value(run_mode, 3, 1); // ON OFF AUTO VENT
+                        run_mode = increment_byte_value(run_mode, 0, 3, 1); // ON OFF AUTO VENT
                         break;
 
                     case KEY_LEFTUP:
-                        displayMode = decrement_byte_value(displayMode, 3, 1); // flip through the pages
+                        displayMode = decrement_byte_value(displayMode, 0, 3, 1); // flip through the pages
                         resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                         break;
 
                     case KEY_LEFTDOWN:
-                        displayMode = increment_byte_value(displayMode, 3, 1); // flip through the pages
+                        displayMode = increment_byte_value(displayMode, 0, 3, 1); // flip through the pages
                         resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                         break;
 
                     case KEY_ENTER_LONG:
                         displayMode = 99; // start setDateTime 
-                        init_setDateTime();
+                        init_set_date_time();
 
                         break;
 

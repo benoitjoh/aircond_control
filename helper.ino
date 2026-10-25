@@ -33,21 +33,21 @@ void checkAcDisconnected() {
 
 /*!
 @abstract   Increment a byte value by step.
-    if it gets higher than max, set to 0 
+    if it gets higher than max, set to min 
 */
-byte increment_byte_value(byte value, byte max, byte step) {
+byte increment_byte_value(byte value, byte min, byte max, byte step) {
     value += step;
-    if ( value > max ) {value = 0;}
+    if ( value > max ) {value = min;}
     return value;
     }
 
 /*!
 @abstract   Decrement a byte value by step.
-    if it gets lower than 0, set to max 
+    if it gets lower than min, set to max 
 */
-byte decrement_byte_value(byte value, byte max, byte step) {
+byte decrement_byte_value(byte value, byte min, byte max, byte step) {
     value -= step;
-    if ( value > max ) {value = max;}
+    if ( value > max or value < min ) {value = max;}
     return value;
     }
 
