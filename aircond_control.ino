@@ -34,10 +34,13 @@ int temp_1 = 0;
 int temp_2 = 0;
 
 byte function_mode = 0; // 0: cooling   1: heating
-String function_mode_name[2] {"kü", "hz"};
+String function_mode_name[2] {"k\xf5", "hz"};
 
-byte run_mode = 0; // 0: off  1:  on  2: clock controlled
-String run_mode_name[3] {" AUS", " EIN", "AUTO"};
+byte run_mode = 0; // 0: off  1:  on  2: clock controlled 3: only fan is on
+String run_mode_name[4] {" AUS", " EIN", "AUTO", "VENT"};
+
+byte run_state = 0; // 0: inactive  1: active. switched by timer or user (by run_mode)
+
 
 byte displayMode = 0; 
 long resetDisplayModeSeconds = 0;
@@ -86,42 +89,15 @@ TimeLoop tmh(0);
     Adafruit_MCP9808 mcp_tempsensor = Adafruit_MCP9808();
 #endif
 
+// --- library for phase cut controller ----------------------------------------------
 #include <PhaseCutCtrl.h>
 // Note: PhaseCutCtrl is preinstantiated as PCCtrl. Initialization later in setup()
 
-// ---- string helper   ---------------------------------------------------------------  
-String leftFill(String a, byte wantedLen, String fillLetter) {
-    // fills a string with letters from left side that the resulting length is reached
-    while (a.length() < wantedLen) {
-        a = fillLetter + a;
-        }
-        
-    for (byte i=0; i<wantedLen; i++) {
-        if (a[i] == '-') {
-            a[i] = 4;
-            }
-        }
-    return a;
-    }
-
-byte divideAndRoundBy(unsigned long value, int dividend) {
-    // divide by dividend [10, 100, 1000] and round 
-    byte result = byte(value / dividend);
-    if ( value % dividend  > ((dividend / 2) - 1) ) {
-        result +=1;
-        }
-}
-
-
-// --- check function if 235V is disconnected -----------------------------------
-void checkAcDisconnected() {
-    if ( !PCCtrl.acNetIsAlive() ) {   
-        storeEEprom();
-        lcd.setCursor(0, 1);
-        lcd.print("Net disconnected.");
-        delay(3000);
-        }
-}
+// ---- special characters   ---------------------------------------------------------------  
+#define CHAR_HOOK 1
+#define CHAR_ARROW_UP 2
+#define CHAR_ARROW_DOWN 3
+#define CHAR_DIVISE 4
 
 
 // EEPROM ------------------------------------------------------------------
@@ -151,9 +127,6 @@ int cfg[CONF_ADDR_COUNT] = {450, -10, 9, 0, 0, 0, 0, 0, };
 #define CONF_V6 6
 #define CONF_V7 7
 
-#define CHAR_HOOK 1
-#define CHAR_ARROW_UP 2
-#define CHAR_ARROW_DOWN 3
 
 void loadEEprom(int offset) {
     lcd.setCursor(0,1);
@@ -196,7 +169,7 @@ void setup() {
     lcd.print(F("# MACS 7000jb #")); 
     lcd.setCursor(0,1);
     lcd.print(VERSION);
-    delay(2000);
+    delay(1000);
 
     loadEEprom(EE_OFFSET );
     setBacklight(1);
@@ -231,7 +204,7 @@ void loop() {
     // ---- do something ---------
     
     delay(50); // do he loop max 20 times per second
-    checkAcDisconnected();
+    // checkAcDisconnected();
 
     // update the timeloop handler. state: 0: nothing; 1: 100ms passed; 2: 1s passed; 3: midnight
     byte time_state = tmh.actualize(); 
@@ -291,9 +264,9 @@ void loop() {
                 //     20.2° AUTO 12:23   akt. temp, AUTO/EIN/AUS, Time
 
                 lcd.setCursor(0,0);
-                lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "\xdf-" +
-                            leftFill(String(storage.temp_max), 2, " ") + "\xdf] ");
-                lcd.print(function_mode_name[function_mode] + "  ");
+                lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "-" +
+                            leftFill(String(storage.temp_max), 2, " ") + "] ");
+                lcd.print(function_mode_name[function_mode] + "   ");
                 lcd.print("VKP");
                 lcd.setCursor(0,1);
                 lcd.print(leftFill(String(18.6, 1), 4, " ") + "\xdf" + " ");
@@ -303,7 +276,7 @@ void loop() {
 
             case 1 ... 2:
                 // -- display switch times
-                display_set_switch_time(displayMode);
+                display_set_time_switch(displayMode);
                 break; 
 
             case 3:
@@ -354,21 +327,23 @@ void loop() {
     kbdValue = kbd.read();
 
     if (kbdValue != 255) { //key is pressed
+        Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
         // reset fridge alarm
         temp_alarm = false; 
 
         switch (displayMode) {
             case 1 ... 2:
-                handleKeystroke_set_switch_time(displayMode);
+                handleKeystroke_set_time_switch(displayMode);
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                 break;
-            case 3:
+            case 399:
                 //handleKeystroke_set_temp_limits();
                 break;
             case 98:
                 handleKeystroke_setConfigMenu();
                 break;
             case 99:
-                handleKeystroke_setDateTime();
+                 handleKeystroke_setDateTime();
                 break;
 
             default:
@@ -389,27 +364,26 @@ void loop() {
                         break;
 
                     case KEY_DOWN:
+                         break;
+
+                    case KEY_MID:
+                        run_mode = increment_byte_value(run_mode, 3, 1); // ON OFF AUTO VENT
                         break;
 
-
                     case KEY_LEFTUP:
-                        displayMode--; // flip through the pages
-                        if ( displayMode < 0 ) {
-                            displayMode = 3;
-                        }
+                        displayMode = decrement_byte_value(displayMode, 3, 1); // flip through the pages
                         resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                         break;
 
                     case KEY_LEFTDOWN:
-                        displayMode++; // flip through the pages
-                        if ( displayMode > 3 ) {
-                            displayMode = 0;
-                        }
+                        displayMode = increment_byte_value(displayMode, 3, 1); // flip through the pages
                         resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                         break;
 
                     case KEY_ENTER_LONG:
                         displayMode = 99; // start setDateTime 
+                        init_setDateTime();
+
                         break;
 
                     case KEY_DOWN_LONG:
