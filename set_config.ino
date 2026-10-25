@@ -68,7 +68,7 @@ void handleKeystroke_setConfigMenu() {
     switch (kbdValue) {
     case KEY_ENTER:   // enter (key 0 in set date time mode
         // finish
-        displayMode = 0;
+        display_page = 0;
         kbdValue = 255; 
         storeEEprom();
         break;

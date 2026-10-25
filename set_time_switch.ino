@@ -36,7 +36,7 @@ void handleKeystroke_set_time_switch(byte index) {
     switch (kbdValue) {
     case KEY_ENTER:   // enter (key 0 in set date time mode
         // finish
-        displayMode = 0;
+        display_page = 0;
         kbdValue = 255; 
         lcd.noCursor();
         lcd.noBlink();
@@ -90,12 +90,12 @@ void handleKeystroke_set_time_switch(byte index) {
         break;
 
         case KEY_LEFTUP:
-            displayMode = decrement_byte_value(displayMode, 0, 3, 1); // flip through the pages
+            display_page = decrement_byte_value(display_page, 0, 3, 1); // flip through the pages
             resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
             break;
 
         case KEY_LEFTDOWN:
-            displayMode = increment_byte_value(displayMode, 0, 3, 1); // flip through the pages
+            display_page = increment_byte_value(display_page, 0, 3, 1); // flip through the pages
             resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
             break;
                 

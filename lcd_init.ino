@@ -80,3 +80,13 @@ void init_lcd() {
   lcd.home();   
 
 }
+
+void cursor_on() {
+  lcd.cursor();
+  lcd.blink();
+}
+
+void cursor_of() {
+  lcd.noCursor();
+  lcd.noBlink();
+}

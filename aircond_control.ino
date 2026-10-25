@@ -12,7 +12,7 @@
 
     Display
     ----------------
-    [20-25°] kü  VKP   [temp range], kü|hz, Ventilator, Kompressor, Pumpe 
+    [20-25] kü   VKP   [temp range], kü|hz, Ventilator, Kompressor, Pumpe 
     20.2° AUTO 12:23   akt. temp, AUTO/EIN/AUS, Time
     ----------------
     
@@ -25,24 +25,43 @@
 
 // alarm for second temp sensor
 // alarm limit defined in storage.cfg[CONF_TEMP_ALARM]
-boolean temp_alarm = false;
+boolean alarm_on = false;
 
 unsigned long nowMillis;
 
-int temp = 0;
+float temp = 19.2;
 int temp_1 = 0;
 int temp_2 = 0;
 
-byte function_mode = 0; // 0: cooling   1: heating
-String function_mode_name[2] {"k\xf5", "hz"};
+// State variables
+byte run_mode = 0; // Manual setting.  0: off  1:  on  2: clock controlled 3: only fan is on
+byte run_mode_old = 0;
+byte run_mode_change_delay = 0;
 
-byte run_mode = 0; // 0: off  1:  on  2: clock controlled 3: only fan is on
+byte engine_state = 0; // 0 system  off, 1 system is  temp controlled
+
+byte timer_active = 0;
+
+byte function_state = 0; // 0: off, 1: cooling 2: heat  ;
+
+byte fan_state = 0; // off/on/ wait for off
+byte compressor_state = 0; // off/on
+byte valve_state = 0; // off/on
+
+byte pump_state = 0; // 0: off / 1: on / 2: wait for off
+#define PUMP_WAIT_SECS 30;
+byte pump_wait= 0; // count down for switch of pump
+
 String run_mode_name[4] {" AUS", " EIN", "AUTO", "VENT"};
+String function_state_name[3] {"--", "k\xf5", "hz"};
 
-byte run_state = 0; // 0: inactive  1: active. switched by timer or user (by run_mode)
+String fan_state_name[3] {"-", "V", "+"};
+String compressor_state_name[2] {"-", "K"};
+String pump_state_name[3] {"-", "P", "+"};
 
 
-byte displayMode = 0; 
+
+byte display_page = 0; 
 long resetDisplayModeSeconds = 0;
 
 byte backlight = 1;
@@ -159,7 +178,7 @@ void storeEEprom() {
 // Initialization ---------------------------------------------------------------------------
 
 void setup() {
-    displayMode = 0; // 0 means actual day.
+    display_page = 0; // 0 means actual day.
     resetDisplayModeSeconds = 0;
 
     init_lcd(); // init and add userdefined chars
@@ -175,6 +194,10 @@ void setup() {
     setBacklight(1);
 
     pinMode(13, OUTPUT);
+    pinMode(PIN_COMPRESSOR, OUTPUT);
+    pinMode(PIN_PUMP, OUTPUT);
+    pinMode(PIN_VALVE, OUTPUT);
+    pinMode(PIN_COOLERFAN, OUTPUT);
     
     // serial device for debugging purpose!
     Serial.begin(9600);
@@ -211,22 +234,81 @@ void loop() {
 
     if ( time_state >= 1 ) {
         // --- 100ms has passed ---- 
+        toggle_backlight(alarm_on);
 
-        if ( temp_alarm ) {
-            backlight = !backlight;
-            }
-        else {
-            backlight = 1;
-            }
+                    
+        // check manual change of run_mode 
+        if ( run_mode != run_mode_old ) {
+            run_mode_change_delay++;
+            if ( run_mode_change_delay > 2 ) {
+                // ----- handle change here -----------
+                run_mode_old = run_mode;
+                run_mode_change_delay = 0;
 
-        setBacklight(backlight);
+                PORTB |=  B00100000; // set led on    
+                delay(30); // longer blink...
+                PORTB &= ~B00100000; //set pin13 to LOW 
+
+                switch (run_mode) {
+                    case 0:
+                        engine_state = 0;
+                        request_stop_compressor();
+                        timer_active = 0;
+                        break;
+                    case 1:
+                        engine_state = 1;
+                        timer_active = 0;
+                        break;
+                    case 2:
+                        timer_active = 1;
+                        break;
+                    case 3:
+                        engine_state = 0;
+                        request_stop_compressor();
+                        timer_active = 0;
+                        fan_state = 1;
+                }
+            }
+        }
+
 
         if ( time_state >= 2 ) {
             // --- 1 sec has passed ---- 
+            
+            PORTB |=  B00100000; // set led on  
 
-            PORTB |=  B00100000; //set pin13 to HIGH, give led a quick blink each second     
+            // check timer
+            if (tmh.getSec() == '0' && timer_active == 1 ) {
+                byte minute = tmh.getMinute();
+                byte hour = tmh.getHour();
+                for (byte i=0; i<4; i++) {
+                    if (storage.switch_times[i][0] == hour &&
+                        storage.switch_times[i][1] == minute) {
+                            engine_state = storage.switch_times[i][2];
+                            if (engine_state == 0) {
+                                request_stop_compressor();
+                            }
+                            delay(30); // blink
+                        }
+                    }
+            }
+
+            // if pump/fan is waiting for off (pump_state = 2), switch off after delay is passed
+            if ( pump_wait > 0 ) { 
+                pump_wait--; }
+            else {
+                if ( pump_state == 2 ) {
+                    pump_state = 0;
+                }
+                if ( fan_state == 2 ) {
+                    fan_state = 0;
+                }
+            }
+
             delayMicroseconds(50);
             PORTB &= ~B00100000; //set pin13 to LOW 
+
+
             
             // read sensors
 #if USE_MCP9808_SENSOR == 1
@@ -235,7 +317,22 @@ void loop() {
             temp_1 = read_pt1000(analogRead(ANALOG_TEMP_1_PIN));
             temp_2 = read_pt1000(analogRead(ANALOG_TEMP_2_PIN));
 
-            PCCtrl.set_pcc(storage.cfg[CONF_FAN_SPEED]);
+            set_function_by_temp_condition();
+            set_compressor_by_temp_condition();
+
+
+            // generate outputs
+            if (fan_state == 1) {
+                PCCtrl.set_pcc(storage.cfg[CONF_FAN_SPEED]);
+            }
+            else {
+                PCCtrl.set_pcc(0);
+            }
+
+            digitalWrite(PIN_COMPRESSOR, compressor_state);
+            digitalWrite(PIN_PUMP, pump_state);
+            digitalWrite(PIN_VALVE, valve_state);
+            digitalWrite(PIN_COOLERFAN, pump_state);
 
             if ( tmh.getSecondsCounter() % 3600 == 1) {
                 // ----- new hour started... 
@@ -256,34 +353,35 @@ void loop() {
 
         // ---- refresh display ----------------------------------------------------------------------------
 
-        switch ( displayMode )
+        switch ( display_page )
             {
             case 0:
                 // -- display normal information each second
                 //     [20-25°] kü  VKP   [temp range], kü|hz, Ventilator, Kompressor, Pumpe 
                 //     20.2° AUTO 12:23   akt. temp, AUTO/EIN/AUS, Time
+                cursor_of();
 
                 lcd.setCursor(0,0);
                 lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "-" +
                             leftFill(String(storage.temp_max), 2, " ") + "] ");
-                lcd.print(function_mode_name[function_mode] + "   ");
+                lcd.print(function_state_name[function_state] + "   ");
                 lcd.print("VKP");
                 lcd.setCursor(0,1);
-                lcd.print(leftFill(String(18.6, 1), 4, " ") + "\xdf" + " ");
+                lcd.print(leftFill(String(temp, 1), 4, " ") + "\xdf" + " ");
                 lcd.print(run_mode_name[run_mode] + " ");
                 lcd.print(tmh.getHrsMinSec());
                 break;
 
             case 1 ... 2:
                 // -- display switch times
-                display_set_time_switch(displayMode);
+                cursor_on();
+                display_set_time_switch(display_page);
                 break; 
 
             case 3:
                 // -- display temperatur settings
-                //display_set_temp_limits(displayMode);
+                cursor_on();
                 display_set_temp_limit();
-
                 break; 
 
             case 30:
@@ -308,11 +406,11 @@ void loop() {
                 break;
             }
         
-        if (displayMode > 0 and displayMode < 30 and
+        if (display_page > 0 and display_page < 30 and
             tmh.getSecondsCounter() > resetDisplayModeSeconds ) {
             // fall back to standard display after 5 defined time
             // these disp321lays should be manually reset
-            displayMode = 0;
+            display_page = 0;
             }
 
 
@@ -325,14 +423,13 @@ void loop() {
     // ---- deal with an eventually pressed key -----------------------
     kbdValue = kbd.read();
 
-    if (kbdValue != 255) { //key is pressed
+    if (kbdValue != 255) { // key is pressed
         Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
-        // reset fridge alarm
-        temp_alarm = false; 
+        alarm_on = false; 
 
-        switch (displayMode) {
+        switch (display_page) {
             case 1 ... 2:
-                handleKeystroke_set_time_switch(displayMode);
+                handleKeystroke_set_time_switch(display_page);
                 resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                 break;
             case 3:
@@ -341,11 +438,9 @@ void loop() {
                 break;
             case 98:
                 handleKeystroke_setConfigMenu();
-                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-               break;
+                break;
             case 99:
                 handle_keystroke_set_date_time();
-                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                 break;
 
             default:
@@ -358,38 +453,42 @@ void loop() {
                         break;
 
                     case KEY_LEFT:
-                        displayMode = 30; //debug
+                        display_page = 30; //debug
                         resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                         break;
 
-                    case KEY_UP:
+                    case KEY_UP: 
+                        temp += 0.1; // for test purpose only
                         break;
 
                     case KEY_DOWN:
-                         break;
+                        temp -= 0.1;  // for test purpose only        // reset fridge alarm
+ 
+                        break;
 
                     case KEY_MID:
                         run_mode = increment_byte_value(run_mode, 0, 3, 1); // ON OFF AUTO VENT
+                        run_mode_change_delay = 0;
                         break;
 
                     case KEY_LEFTUP:
-                        displayMode = decrement_byte_value(displayMode, 0, 3, 1); // flip through the pages
+                        display_page = decrement_byte_value(display_page, 0, 3, 1); // flip through the pages
                         resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                         break;
 
                     case KEY_LEFTDOWN:
-                        displayMode = increment_byte_value(displayMode, 0, 3, 1); // flip through the pages
+                        display_page = increment_byte_value(display_page, 0, 3, 1); // flip through the pages
                         resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                         break;
 
                     case KEY_ENTER_LONG:
-                        displayMode = 99; // start setDateTime 
+                        display_page = 99; // start setDateTime 
                         init_set_date_time();
 
                         break;
 
                     case KEY_DOWN_LONG:
-                        displayMode = 98; // start setConfig 
+                        display_page = 98; // start setConfig 
                         break;
 
                     default:
