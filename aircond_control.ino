@@ -29,7 +29,7 @@ boolean alarm_on = false;
 
 unsigned long nowMillis;
 
-float temp = 19.2;
+float temp = 22.2;
 int temp_1 = 0;
 int temp_2 = 0;
 
@@ -49,7 +49,6 @@ byte compressor_state = 0; // off/on
 byte valve_state = 0; // off/on
 
 byte pump_state = 0; // 0: off / 1: on / 2: wait for off
-#define PUMP_WAIT_SECS 30;
 byte pump_wait= 0; // count down for switch of pump
 
 String run_mode_name[4] {" AUS", " EIN", "AUTO", "VENT"};
@@ -140,7 +139,7 @@ int cfg[CONF_ADDR_COUNT] = {450, -10, 9, 0, 0, 0, 0, 0, };
 #define CONF_TIMECORR_MS_PER_HOUR 0
 #define CONF_TEMP_ALARM 1
 #define CONF_FAN_SPEED 2
-#define CONF_V3 3
+#define CONF_FAN_WAIT 3
 #define CONF_V4 4
 #define CONF_V5 5
 #define CONF_V6 6
@@ -185,7 +184,7 @@ void setup() {
 
     lcd.noCursor();
 
-    lcd.print(F("# MACS 7000jb #")); 
+    lcd.print(F("#  AC control  #")); 
     lcd.setCursor(0,1);
     lcd.print(VERSION);
     delay(1000);
@@ -240,7 +239,7 @@ void loop() {
         // check manual change of run_mode 
         if ( run_mode != run_mode_old ) {
             run_mode_change_delay++;
-            if ( run_mode_change_delay > 2 ) {
+            if ( run_mode_change_delay > 12 ) {
                 // ----- handle change here -----------
                 run_mode_old = run_mode;
                 run_mode_change_delay = 0;
@@ -365,7 +364,10 @@ void loop() {
                 lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "-" +
                             leftFill(String(storage.temp_max), 2, " ") + "] ");
                 lcd.print(function_state_name[function_state] + "   ");
-                lcd.print("VKP");
+                lcd.print(fan_state_name[fan_state]);
+                lcd.print(compressor_state_name[compressor_state]);
+                lcd.print(pump_state_name[pump_state]);
+                
                 lcd.setCursor(0,1);
                 lcd.print(leftFill(String(temp, 1), 4, " ") + "\xdf" + " ");
                 lcd.print(run_mode_name[run_mode] + " ");
@@ -424,7 +426,7 @@ void loop() {
     kbdValue = kbd.read();
 
     if (kbdValue != 255) { // key is pressed
-        Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
+        // Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
         alarm_on = false; 
 
         switch (display_page) {
