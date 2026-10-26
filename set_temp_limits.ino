@@ -27,21 +27,19 @@ void handle_keystroke_set_temp_limit() {
     switch (kbdValue) {
     case KEY_ENTER:   // enter (key 0 in set date time mode
         // finish
-        display_page = 0;
-        kbdValue = 255; 
-        lcd.noCursor();
-        lcd.noBlink();
-        storeEEprom();
-        break;
+       break;
       
     case KEY_RIGHT: // right (key 1 in set date time mode
+        kbdValue = NO_KBD_PRESSED;
         cursor_index_tp_set = increment_byte_value(cursor_index_tp_set, 0, SET_TP_CURSOR_POS_CNT - 1, 1);
         break;
     case KEY_LEFT: // left (key 2 in set date time mode
+        kbdValue = NO_KBD_PRESSED;
         cursor_index_tp_set = decrement_byte_value(cursor_index_tp_set, 0, SET_TP_CURSOR_POS_CNT - 1, 1);
         break;
         
     case KEY_UP: // up 
+        kbdValue = NO_KBD_PRESSED;
         switch (cursor_index_tp_set) {
             // up switch time
             case 0: 
@@ -54,6 +52,7 @@ void handle_keystroke_set_temp_limit() {
         break;
 
     case KEY_DOWN: // down 
+        kbdValue = NO_KBD_PRESSED;
         switch (cursor_index_tp_set) {
             case 0: 
                 storage.temp_min = decrement_byte_value(storage.temp_min, 16, 22, 1);
@@ -63,17 +62,6 @@ void handle_keystroke_set_temp_limit() {
                 break;
        }
         break;
-
-        case KEY_LEFTUP:
-            display_page = decrement_byte_value(display_page, 0, 3, 1); // flip through the pages
-            resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-            break;
-
-        case KEY_LEFTDOWN:
-            display_page = increment_byte_value(display_page, 0, 3, 1); // flip through the pages
-            resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-            break;
-                
                     
     default:
       break;

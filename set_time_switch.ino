@@ -7,13 +7,14 @@
 byte cursor_index_ts_set = 0;
 const byte cursPos_ts[SET_TS_CURSOR_POS_CNT] = {2, 5, 10, 13};
 
-void display_set_time_switch(byte index) {
-    // index is 1 or 2. to adress values in array 0, 1 reduce by it by 1
-    index--;
+void display_set_time_switch() {
+    byte index;
+    if (display_page == 1) { index = 0; }
+    if (display_page == 2) { index = 2; }
     
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("Schaltzeit " + String(index) + ":"); 
+    lcd.print("Schaltzeit " + String(display_page) + ":"); 
     lcd.setCursor(0, 1);
     /// pos         2  5   9  c
     /// show     "xhh:mm xhh:mm"
@@ -28,29 +29,24 @@ void display_set_time_switch(byte index) {
 }
 
 
-void handleKeystroke_set_time_switch(byte index) {
-    index--;
-    lcd.cursor();
-    lcd.blink();
-    
+void handleKeystroke_set_time_switch() {
+    byte index;
+    if (display_page == 1) { index = 0; }
+    if (display_page == 2) { index = 2; }
+
     switch (kbdValue) {
-    case KEY_ENTER:   // enter (key 0 in set date time mode
-        // finish
-        display_page = 0;
-        kbdValue = 255; 
-        lcd.noCursor();
-        lcd.noBlink();
-        storeEEprom();
-        break;
-      
+     
     case KEY_RIGHT: // right (key 1 in set date time mode
+        kbdValue = NO_KBD_PRESSED;
         cursor_index_ts_set = increment_byte_value(cursor_index_ts_set, 0, SET_TS_CURSOR_POS_CNT - 1, 1);
         break;
     case KEY_LEFT: // left (key 2 in set date time mode
+        kbdValue = NO_KBD_PRESSED;
         cursor_index_ts_set = decrement_byte_value(cursor_index_ts_set, 0, SET_TS_CURSOR_POS_CNT - 1, 1);
         break;
         
     case KEY_UP: // up 
+        kbdValue = NO_KBD_PRESSED;
         switch (cursor_index_ts_set) {
             // up switch time
             case 0: 
@@ -70,6 +66,7 @@ void handleKeystroke_set_time_switch(byte index) {
         break;
 
     case KEY_DOWN: // down 
+        kbdValue = NO_KBD_PRESSED;
         switch (cursor_index_ts_set) {
             //hour
             case 0: 
@@ -89,20 +86,8 @@ void handleKeystroke_set_time_switch(byte index) {
         }
         break;
 
-        case KEY_LEFTUP:
-            display_page = decrement_byte_value(display_page, 0, 3, 1); // flip through the pages
-            resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-            break;
-
-        case KEY_LEFTDOWN:
-            display_page = increment_byte_value(display_page, 0, 3, 1); // flip through the pages
-            resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-            break;
-                
-                    
     default:
       break;
-    
     }
 }
   

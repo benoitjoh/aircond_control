@@ -54,9 +54,9 @@ byte pump_wait= 0; // count down for switch of pump
 String run_mode_name[4] {" AUS", " EIN", "AUTO", "VENT"};
 String function_state_name[3] {"--", "k\xf5", "hz"};
 
-String fan_state_name[3] {"-", "V", "+"};
-String compressor_state_name[2] {"-", "K"};
-String pump_state_name[3] {"-", "P", "+"};
+String fan_state_name[3] {"-", "v", "."};
+String compressor_state_name[2] {"-", "k"};
+String pump_state_name[3] {"-", "p", "."};
 
 
 
@@ -90,8 +90,9 @@ byte backlight = 1;
 // --- keyboard driver from AnalogKbd.cpp ---------------------------------------------
 #include<AnalogKbd.h>
 
+#define NO_KBD_PRESSED 255
 AnalogKbd kbd(PIN_ANALOG_KBD, KBD_NR_OF_KEYS);
-byte kbdValue = 255; //the value that is read from keyboard 255 is neutral value
+byte kbdValue = NO_KBD_PRESSED; //the value that is read from keyboard 255 is neutral value
 
 
 // --- timer helpers from TimeLoop.cpp ---------------------------------------------
@@ -139,8 +140,8 @@ int cfg[CONF_ADDR_COUNT] = {450, -10, 9, 0, 0, 0, 0, 0, };
 #define CONF_TIMECORR_MS_PER_HOUR 0
 #define CONF_TEMP_ALARM 1
 #define CONF_FAN_SPEED 2
-#define CONF_FAN_WAIT 3
-#define CONF_V4 4
+#define CONF_PUMP_WAIT 3
+#define CONF_HYSTERESIS 4
 #define CONF_V5 5
 #define CONF_V6 6
 #define CONF_V7 7
@@ -277,7 +278,7 @@ void loop() {
             PORTB |=  B00100000; // set led on  
 
             // check timer
-            if (tmh.getSec() == '0' && timer_active == 1 ) {
+            if (tmh.getSec() == 1 && timer_active == 1 ) {
                 byte minute = tmh.getMinute();
                 byte hour = tmh.getHour();
                 for (byte i=0; i<4; i++) {
@@ -358,7 +359,7 @@ void loop() {
                 // -- display normal information each second
                 //     [20-25°] kü  VKP   [temp range], kü|hz, Ventilator, Kompressor, Pumpe 
                 //     20.2° AUTO 12:23   akt. temp, AUTO/EIN/AUS, Time
-                cursor_of();
+                cursor_off();
 
                 lcd.setCursor(0,0);
                 lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "-" +
@@ -377,7 +378,7 @@ void loop() {
             case 1 ... 2:
                 // -- display switch times
                 cursor_on();
-                display_set_time_switch(display_page);
+                display_set_time_switch();
                 break; 
 
             case 3:
@@ -386,7 +387,7 @@ void loop() {
                 display_set_temp_limit();
                 break; 
 
-            case 30:
+            case 4:
                 // -- debug information values of ad inputs
                 lcd.setCursor(0,0);
                 lcd.print("  A0  A1  A2  A3");
@@ -399,39 +400,38 @@ void loop() {
             
             case 98:
                 // -- set Time and date
+                cursor_on();
                 display_setConfigMenu();
                 break;
 
             case 99:
                 // -- set Time and date
+                cursor_on();
                 display_set_date_time();
                 break;
             }
         
         if (display_page > 0 and display_page < 30 and
             tmh.getSecondsCounter() > resetDisplayModeSeconds ) {
-            // fall back to standard display after 5 defined time
-            // these disp321lays should be manually reset
+            // fall back to standard display after a defined time
+            // these displays > 30 must be manually reset
             display_page = 0;
             }
 
 
         } // --- 100ms
 
-    else {
-        delay(1); //minimum loop time if nothing else happened...       
-        }
 
     // ---- deal with an eventually pressed key -----------------------
     kbdValue = kbd.read();
 
-    if (kbdValue != 255) { // key is pressed
+    if (kbdValue != NO_KBD_PRESSED) { // key is pressed
         // Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
         alarm_on = false; 
 
         switch (display_page) {
             case 1 ... 2:
-                handleKeystroke_set_time_switch(display_page);
+                handleKeystroke_set_time_switch();
                 resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
                 break;
             case 3:
@@ -444,58 +444,57 @@ void loop() {
             case 99:
                 handle_keystroke_set_date_time();
                 break;
+        }
+
+        // handle the unhandled Keys that are left over  (not already set to NO_KBD_PRESSED)   
+        switch (kbdValue) {
+            case KEY_ENTER:
+                storeEEprom();
+                display_page = 0;
+                cursor_off();
+                break;
+
+            case KEY_RIGHT:
+                break;
+
+            case KEY_LEFT:
+                //display_page = 4; //debug
+                //resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                break;
+
+            case KEY_UP: 
+                temp += 0.1; // for test purpose only
+                break;
+
+            case KEY_DOWN:
+                temp -= 0.1;  // for test purpose only        // reset fridge alarm
+
+                break;
+
+            case KEY_MID:
+                run_mode = increment_byte_value(run_mode, 0, 3, 1); // ON OFF AUTO VENT
+                run_mode_change_delay = 0;
+                break;
+
+            case KEY_LEFTUP:
+                display_page = decrement_byte_value(display_page, 0, 4, 1); // flip through the pages
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                break;
+
+            case KEY_LEFTDOWN:
+                display_page = increment_byte_value(display_page, 0, 4, 1); // flip through the pages
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                break;
+
+            case KEY_ENTER_LONG:
+                display_page = 99; // start setDateTime 
+                break;
+
+            case KEY_DOWN_LONG:
+                display_page = 98; // start setConfig 
+                break;
 
             default:
-                switch (kbdValue) {
-                    case KEY_ENTER:
-                        storeEEprom();
-                        break;
-
-                    case KEY_RIGHT:
-                        break;
-
-                    case KEY_LEFT:
-                        display_page = 30; //debug
-                        resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-                        break;
-
-                    case KEY_UP: 
-                        temp += 0.1; // for test purpose only
-                        break;
-
-                    case KEY_DOWN:
-                        temp -= 0.1;  // for test purpose only        // reset fridge alarm
- 
-                        break;
-
-                    case KEY_MID:
-                        run_mode = increment_byte_value(run_mode, 0, 3, 1); // ON OFF AUTO VENT
-                        run_mode_change_delay = 0;
-                        break;
-
-                    case KEY_LEFTUP:
-                        display_page = decrement_byte_value(display_page, 0, 3, 1); // flip through the pages
-                        resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-                        break;
-
-                    case KEY_LEFTDOWN:
-                        display_page = increment_byte_value(display_page, 0, 3, 1); // flip through the pages
-                        resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
-                        break;
-
-                    case KEY_ENTER_LONG:
-                        display_page = 99; // start setDateTime 
-                        init_set_date_time();
-
-                        break;
-
-                    case KEY_DOWN_LONG:
-                        display_page = 98; // start setConfig 
-                        break;
-
-                    default:
-                        break;
-                }
                 break;
         }
     }

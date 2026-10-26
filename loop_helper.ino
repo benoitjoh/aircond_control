@@ -34,8 +34,8 @@ void set_function_by_temp_condition() {
 
 void set_compressor_by_temp_condition() {
     if ( engine_state == 1 ) {
-        float low_hyst_temp = temp - TEMP_HYSTERESIS;
-        float high_hyst_temp = temp + TEMP_HYSTERESIS;
+        float low_hyst_temp = temp - storage.cfg[CONF_HYSTERESIS] / 10.0;
+        float high_hyst_temp = temp + storage.cfg[CONF_HYSTERESIS] / 10.0;
        
         //Serial.println(function_state_name[function_state] + "  temp:" + String(temp, 1) + " low:" + String(low_hyst_temp, 1) + " high:" + String(high_hyst_temp, 1) + " min:" + String(min_limit, 1));
 
@@ -70,7 +70,7 @@ void request_stop_compressor() {
     compressor_state = 0;
     pump_state = 2; 
     fan_state = 2;
-    pump_wait = storage.cfg[CONF_FAN_WAIT];
+    pump_wait = storage.cfg[CONF_PUMP_WAIT];
     function_state = 0;
     valve_state = 0;
 }

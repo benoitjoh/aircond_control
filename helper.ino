@@ -4,6 +4,7 @@
 @abstract   fill a string from left with chars "fill_char" until it reaches wanted_len
             replace minus-symbol by the shorter variant CHAR_DIVISE
 */
+
 String leftFill(String a, byte wanted_len, String fill_char) {
     // fills a string with letters from left side that the resulting length is reached
     while (a.length() < wanted_len) {
@@ -16,7 +17,7 @@ String leftFill(String a, byte wanted_len, String fill_char) {
             }
         }
     return a;
-    }
+}
 
 
 
@@ -35,21 +36,21 @@ void checkAcDisconnected() {
 @abstract   Increment a byte value by step.
     if it gets higher than max, set to min 
 */
-byte increment_byte_value(byte value, byte min, byte max, byte step) {
+byte increment_byte_value(byte value, byte min_val, byte max_val, byte step) {
     value += step;
-    if ( value > max ) {value = min;}
+    if ( value > max_val ) {value = min_val;}
     return value;
-    }
+}
 
 /*!
 @abstract   Decrement a byte value by step.
     if it gets lower than min, set to max 
 */
-byte decrement_byte_value(byte value, byte min, byte max, byte step) {
+byte decrement_byte_value(byte value, byte min_val, byte max_val, byte step) {
     value -= step;
-    if ( value > max or value < min ) {value = max;}
+    if ( value > max_val or value < min_val ) {value = max_val;}
     return value;
-    }
+}
 
 
 

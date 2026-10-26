@@ -20,11 +20,11 @@ struct cfgBdr_t
 
 {
 //  min   max   step    name
-    {-2000,2000,  1,  "ms/h"},
-    {-20,    0,   1,  "tAla"},
-    {0,    100,   1,  "fanS"},
-    {0,    120,   5,  "fanD"},
-    {0,     3,    1,  "v4"},
+    {-2000,2000,  1,  "d ms/h"},
+    {-20,    0,   1,  "tp Ala"},
+    {0,    100,   1,  "fan Sp"},
+    {0,    120,   5,  "pmp Wt"},
+    {0,     10,   1,  "tpHyst"},
     {0,     255,  5,  "v5"},
     {0,     255,  5,  "v6"},
     {0,     255,  5,  "v7"},
@@ -39,7 +39,7 @@ void display_setConfigMenu()
     lcd.setCursor(0,0);
     lcd.print("Set config");
     lcd.setCursor(0,1);
-    lcd.print("[" + leftFill(cfgBoundary[codeAddr].descriptor, 4, " ") + "] : " 
+    lcd.print("[" + leftFill(cfgBoundary[codeAddr].descriptor, 6, " ") + "] : " 
                   + leftFill(String(storage.cfg[codeAddr]), 4, " ") + "  ");
     return;
 }
@@ -68,34 +68,37 @@ void handleKeystroke_setConfigMenu() {
     switch (kbdValue) {
     case KEY_ENTER:   // enter (key 0 in set date time mode
         // finish
-        display_page = 0;
-        kbdValue = 255; 
-        storeEEprom();
         break;
         
     case KEY_RIGHT:
+        kbdValue = NO_KBD_PRESSED;
         codeAddr++;
         if (codeAddr >= CONF_ADDR_COUNT) { codeAddr = 0; }
         break;
         
     case KEY_LEFT: 
+        kbdValue = NO_KBD_PRESSED;
         if (codeAddr == 0) { codeAddr = CONF_ADDR_COUNT; }
         codeAddr--;
         break;
         
     case KEY_UP: //increment value
+        kbdValue = NO_KBD_PRESSED;
         incValue(cfgBoundary[codeAddr].step);
         break;
         
     case KEY_UP_LONG: //increment value more
+        kbdValue = NO_KBD_PRESSED;
         incValue(cfgBoundary[codeAddr].step * 100);
         break;
         
     case KEY_DOWN: //decrement value
+        kbdValue = NO_KBD_PRESSED;
         decValue(cfgBoundary[codeAddr].step);
         break;
 
     case KEY_DOWN_LONG: //decrement value
+        kbdValue = NO_KBD_PRESSED;
         decValue(cfgBoundary[codeAddr].step * 100);
         break;
     }

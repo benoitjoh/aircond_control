@@ -86,7 +86,7 @@ void cursor_on() {
   lcd.blink();
 }
 
-void cursor_of() {
+void cursor_off() {
   lcd.noCursor();
   lcd.noBlink();
 }

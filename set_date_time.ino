@@ -5,11 +5,6 @@
 byte cursor_index_time_set = 1;
 const byte cursPos_time_set[SET_DT_CURSOR_POS_CNT] = {0, 1, 4, 9, 12, 15};
 
-void init_set_date_time() {
-    lcd.cursor();
-    lcd.blink();
-    byte cursor_index_time_set = 1;
-}
 
 void display_set_date_time() {
 
@@ -27,22 +22,20 @@ void handle_keystroke_set_date_time() {
     switch (kbdValue) {
     case KEY_ENTER:   // enter (key 0 in set date time mode
         // finish
-        display_page = 0;
-        kbdValue = 255; 
-        lcd.noCursor();
-        lcd.noBlink();
         tmh.resetSecToZero();
-        storeEEprom();
         break;
     case KEY_RIGHT: // right (key 1 in set date time mode
+        kbdValue = NO_KBD_PRESSED;
         cursor_index_time_set++;
         if (cursor_index_time_set >= SET_DT_CURSOR_POS_CNT) { cursor_index_time_set = 1; }
         break;
     case KEY_LEFT: // left (key 2 in set date time mode
+        kbdValue = NO_KBD_PRESSED;
         cursor_index_time_set--;
         if (cursor_index_time_set < 1) { cursor_index_time_set = SET_DT_CURSOR_POS_CNT - 1; }
         break;
     case KEY_UP: // up 
+        kbdValue = NO_KBD_PRESSED;
         switch (cursor_index_time_set) {
             case 1: //day
                 tmh.incrementDayCounter(1);
@@ -62,6 +55,7 @@ void handle_keystroke_set_date_time() {
         }
         break;
     case KEY_DOWN: // down 
+        kbdValue = NO_KBD_PRESSED;
         switch (cursor_index_time_set) {
             case 1: //day
                 tmh.incrementDayCounter(-1);
