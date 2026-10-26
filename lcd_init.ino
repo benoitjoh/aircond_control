@@ -47,25 +47,36 @@ uint8_t divise[8] = {
   B00000
 };
 
-uint8_t frown[8] = {
-  B00000,
-  B00000,
-  B01010,
-  B00000,
+uint8_t p_dotted[8] = {
   B01110,
+  B00000,
+  B11110,
   B10001,
-  B00000 
+  B11110,
+  B10000,
+  B10000 
 };
 
-uint8_t degCentigree[8] = {
-  B01000,
-  B10100,
-  B01000,
-  B00011,
+uint8_t v_dotted[8] = {
+  B01110,
+  B00000,
+  B00000,
+  B10001,
+  B10001,
+  B01010,
   B00100,
-  B00100,
-  B00100,
-  B00011
+  B00000
+};
+
+uint8_t score[8] = {
+  B00000,
+  B00000,
+  B00000,
+  B00000,
+  B00000,
+  B01110,
+  B00000,
+  B00000
 };
 
 
@@ -76,6 +87,9 @@ void init_lcd() {
   lcd.createChar(2, up);
   lcd.createChar(3, down);
   lcd.createChar(4, divise);
+  lcd.createChar(5, p_dotted);
+  lcd.createChar(6, v_dotted);
+  lcd.createChar(7, score);
   lcd.clear();
   lcd.home();   
 

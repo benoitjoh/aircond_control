@@ -1,6 +1,4 @@
 
-#define TEMP_HYSTERESIS 0.3
-
 void toggle_backlight(byte alarm_on) {
     if ( alarm_on ) {
         backlight = !backlight;
@@ -67,10 +65,17 @@ void request_start_compressor() {
 
 
 void request_stop_compressor() {
+    if (compressor_state == 1) {
+        pump_state = 2; 
+        fan_state = 2;
+        pump_wait = storage.cfg[CONF_PUMP_WAIT];
+    }
+    else {
+        pump_state = 0; 
+        fan_state = 0;
+    }
     compressor_state = 0;
-    pump_state = 2; 
-    fan_state = 2;
-    pump_wait = storage.cfg[CONF_PUMP_WAIT];
+
     function_state = 0;
     valve_state = 0;
 }

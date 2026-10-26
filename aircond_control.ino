@@ -22,6 +22,15 @@
 
 #define VERSION "v1.0/" __DATE__
 
+// ---- special characters   ---------------------------------------------------------------  
+#define CHAR_HOOK 1
+#define CHAR_ARROW_UP 2
+#define CHAR_ARROW_DOWN 3
+#define CHAR_DIVISE 4
+#define CHAR_P_DOTTED 5
+#define CHAR_V_DOTTED 6
+#define CHAR_SCORE 7
+
 
 // alarm for second temp sensor
 // alarm limit defined in storage.cfg[CONF_TEMP_ALARM]
@@ -52,11 +61,11 @@ byte pump_state = 0; // 0: off / 1: on / 2: wait for off
 byte pump_wait= 0; // count down for switch of pump
 
 String run_mode_name[4] {" AUS", " EIN", "AUTO", "VENT"};
-String function_state_name[3] {"--", "k\xf5", "hz"};
+char function_state_name[3][2] {{CHAR_SCORE, CHAR_SCORE}, {'k', '\xf5'}, {'h', 'z'}};
 
-String fan_state_name[3] {"-", "v", "."};
-String compressor_state_name[2] {"-", "k"};
-String pump_state_name[3] {"-", "p", "."};
+char fan_state_name[3] {CHAR_SCORE, 'v', CHAR_V_DOTTED};
+byte compressor_state_name[2] {CHAR_SCORE, 'k'};
+byte pump_state_name[3] {CHAR_SCORE, 'p', CHAR_P_DOTTED};
 
 
 
@@ -111,12 +120,6 @@ TimeLoop tmh(0);
 // --- library for phase cut controller ----------------------------------------------
 #include <PhaseCutCtrl.h>
 // Note: PhaseCutCtrl is preinstantiated as PCCtrl. Initialization later in setup()
-
-// ---- special characters   ---------------------------------------------------------------  
-#define CHAR_HOOK 1
-#define CHAR_ARROW_UP 2
-#define CHAR_ARROW_DOWN 3
-#define CHAR_DIVISE 4
 
 
 // EEPROM ------------------------------------------------------------------
@@ -364,10 +367,14 @@ void loop() {
                 lcd.setCursor(0,0);
                 lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "-" +
                             leftFill(String(storage.temp_max), 2, " ") + "] ");
-                lcd.print(function_state_name[function_state] + "   ");
-                lcd.print(fan_state_name[fan_state]);
-                lcd.print(compressor_state_name[compressor_state]);
-                lcd.print(pump_state_name[pump_state]);
+                lcd.write(function_state_name[function_state][0]);
+                lcd.write(function_state_name[function_state][1]);
+                lcd.print("   ");
+                //lcd.print(function_state_name[function_state] + "   ");
+
+                lcd.write(fan_state_name[fan_state]);
+                lcd.write(compressor_state_name[compressor_state]);
+                lcd.write(pump_state_name[pump_state]);
                 
                 lcd.setCursor(0,1);
                 lcd.print(leftFill(String(temp, 1), 4, " ") + "\xdf" + " ");
