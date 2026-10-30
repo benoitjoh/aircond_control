@@ -4,6 +4,12 @@
 
 #define SET_TP_CURSOR_POS_CNT 2
 
+#define TEMP_HEATING_MIN 16
+#define TEMP_HEATING_MAX 22
+#define TEMP_COOLING_MIN 23
+#define TEMP_COOLING_MAX 28
+
+
 byte cursor_index_tp_set = 0;
 const byte curs_pos_tp[SET_TP_CURSOR_POS_CNT] = {3, 9};
 
@@ -43,10 +49,10 @@ void handle_keystroke_set_temp_limit() {
         switch (cursor_index_tp_set) {
             // up switch time
             case 0: 
-                storage.temp_min = increment_byte_value(storage.temp_min, 16, 22, 1);
+                storage.temp_min = increment_byte_value(storage.temp_min, TEMP_HEATING_MIN, TEMP_HEATING_MAX, 1);
                 break;
             case 1:
-                storage.temp_max = increment_byte_value(storage.temp_max, 24, 26, 1);
+                storage.temp_max = increment_byte_value(storage.temp_max, TEMP_COOLING_MIN, TEMP_COOLING_MAX, 1);
                 break;
        }
         break;
@@ -55,10 +61,10 @@ void handle_keystroke_set_temp_limit() {
         kbdValue = NO_KBD_PRESSED;
         switch (cursor_index_tp_set) {
             case 0: 
-                storage.temp_min = decrement_byte_value(storage.temp_min, 16, 22, 1);
+                storage.temp_min = decrement_byte_value(storage.temp_min, TEMP_HEATING_MIN, TEMP_HEATING_MAX, 1);
                 break;
             case 1:
-                storage.temp_max = decrement_byte_value(storage.temp_max, 24, 26, 1);
+                storage.temp_max = decrement_byte_value(storage.temp_max, TEMP_COOLING_MIN, TEMP_COOLING_MAX, 1);
                 break;
        }
         break;

@@ -36,7 +36,7 @@
 // alarm limit defined in storage.cfg[CONF_TEMP_ALARM]
 boolean alarm_on = false;
 
-unsigned long nowMillis;
+unsigned long start_millis;
 
 float temp = 22.2;
 int temp_1 = 0;
@@ -71,6 +71,7 @@ byte pump_state_name[3] {CHAR_SCORE, 'p', CHAR_P_DOTTED};
 
 byte display_page = 0; 
 long resetDisplayModeSeconds = 0;
+long reset_backlight_seconds = 0;
 
 byte backlight = 1;
 
@@ -145,15 +146,26 @@ int cfg[CONF_ADDR_COUNT] = {450, -10, 9, 0, 0, 0, 0, 0, };
 #define CONF_FAN_SPEED 2
 #define CONF_PUMP_WAIT 3
 #define CONF_HYSTERESIS 4
-#define CONF_V5 5
+#define CONF_DISP_DELAY 5
 #define CONF_V6 6
 #define CONF_V7 7
 
 
-void loadEEprom(int offset) {
+void loadEEprom(bool reset, int offset) {
     lcd.setCursor(0,1);
-    EEPROM.get(offset, storage);
-    lcd.print(F("data loaded.     "));
+    if (!reset) {
+        EEPROM.get(offset, storage);
+        lcd.print(F("data loaded.     "));
+    }
+    else {
+        // load values from default above.
+        lcd.print(F("EEPROM reset.     "));
+        delay(500);
+        // comment in to reset the day of year values 
+        /*for (int i=0; i<367; i++) {
+            updateDayOfYearTotal(i, 0);
+        }*/
+    }
     
     // pass the values to TimeLoop
     tmh.setSecondsCounter(storage.secondsCounter);
@@ -181,7 +193,7 @@ void storeEEprom() {
 // Initialization ---------------------------------------------------------------------------
 
 void setup() {
-    display_page = 0; // 0 means actual day.
+    display_page = 4; // 0 means actual day.
     resetDisplayModeSeconds = 0;
 
     init_lcd(); // init and add userdefined chars
@@ -193,7 +205,18 @@ void setup() {
     lcd.print(VERSION);
     delay(1000);
 
-    loadEEprom(EE_OFFSET );
+    // if no key is pressed on start, read values from eeprom, else reset
+    bool doReset = false;
+    if (analogRead(PIN_ANALOG_KBD) > 100) {
+        lcd.setCursor(0,0);
+        lcd.print(F("ovewrite EEPROM?"));
+        lcd.setCursor(0,1);
+        lcd.print(F("  yes --> Enter "));
+        byte kbdResult = kbd.wait_till_read();
+        doReset = bool(kbdResult == 0);
+        }
+
+    loadEEprom(doReset, EE_OFFSET );
     setBacklight(1);
 
     pinMode(13, OUTPUT);
@@ -226,10 +249,9 @@ void setup() {
 // Mainloop ---------------------------------------------------------------------------
 
 void loop() {
-    nowMillis = millis();
+    start_millis = millis();
     // ---- do something ---------
     
-    delay(50); // do he loop max 20 times per second
     // checkAcDisconnected();
 
     // update the timeloop handler. state: 0: nothing; 1: 100ms passed; 2: 1s passed; 3: midnight
@@ -248,10 +270,8 @@ void loop() {
                 run_mode_old = run_mode;
                 run_mode_change_delay = 0;
 
-                PORTB |=  B00100000; // set led on    
-                delay(30); // longer blink...
-                PORTB &= ~B00100000; //set pin13 to LOW 
-
+                flash(20); delay(50); flash(20);
+                
                 switch (run_mode) {
                     case 0:
                         engine_state = 0;
@@ -277,24 +297,27 @@ void loop() {
 
         if ( time_state >= 2 ) {
             // --- 1 sec has passed ---- 
-            
             PORTB |=  B00100000; // set led on  
-
+            // Serial.println("ad0:" + String(analogRead(0)) + "  ad1:" + String(analogRead(1)) + "  ad2:" + String(analogRead(2)) + "  ad3:" + String(analogRead(3)));
             // check timer
             if (tmh.getSec() == 1 && timer_active == 1 ) {
                 byte minute = tmh.getMinute();
                 byte hour = tmh.getHour();
                 for (byte i=0; i<4; i++) {
+                    // Serial.println("sw.time: " + String(storage.switch_times[i][0]) + ":" + String(storage.switch_times[i][1]));
                     if (storage.switch_times[i][0] == hour &&
                         storage.switch_times[i][1] == minute) {
                             engine_state = storage.switch_times[i][2];
+                            // Serial.println(" --> switch to " + String(storage.switch_times[i][2]));
                             if (engine_state == 0) {
                                 request_stop_compressor();
                             }
-                            delay(30); // blink
+                            flash(20); delay(50); flash(20);
+
                         }
                     }
             }
+
 
             // if pump/fan is waiting for off (pump_state = 2), switch off after delay is passed
             if ( pump_wait > 0 ) { 
@@ -308,8 +331,12 @@ void loop() {
                 }
             }
 
-            delayMicroseconds(50);
+            delayMicroseconds(50);  // very quick blink
             PORTB &= ~B00100000; //set pin13 to LOW 
+
+            if ( tmh.getSec() % 5 == 0 ) {
+                init_lcd();
+            }
 
 
             
@@ -347,7 +374,8 @@ void loop() {
                 storeEEprom();
                 }
 
-            } // --- 1 sec
+            
+        } // --- 1 sec
         
  
         PORTB &= ~B00100000; //set pin13 to LOW 
@@ -359,50 +387,25 @@ void loop() {
         switch ( display_page )
             {
             case 0:
-                // -- display normal information each second
-                //     [20-25°] kü  VKP   [temp range], kü|hz, Ventilator, Kompressor, Pumpe 
-                //     20.2° AUTO 12:23   akt. temp, AUTO/EIN/AUS, Time
                 cursor_off();
-
-                lcd.setCursor(0,0);
-                lcd.print("[" + leftFill(String(storage.temp_min), 2, " ") + "-" +
-                            leftFill(String(storage.temp_max), 2, " ") + "] ");
-                lcd.write(function_state_name[function_state][0]);
-                lcd.write(function_state_name[function_state][1]);
-                lcd.print("   ");
-                //lcd.print(function_state_name[function_state] + "   ");
-
-                lcd.write(fan_state_name[fan_state]);
-                lcd.write(compressor_state_name[compressor_state]);
-                lcd.write(pump_state_name[pump_state]);
-                
-                lcd.setCursor(0,1);
-                lcd.print(leftFill(String(temp, 1), 4, " ") + "\xdf" + " ");
-                lcd.print(run_mode_name[run_mode] + " ");
-                lcd.print(tmh.getHrsMinSec());
+                show_page_standard();
                 break;
 
             case 1 ... 2:
-                // -- display switch times
+                // -- display/edit switch times
                 cursor_on();
                 display_set_time_switch();
                 break; 
 
             case 3:
-                // -- display temperatur settings
+                // -- displa/edit temperatur settings
                 cursor_on();
                 display_set_temp_limit();
                 break; 
 
             case 4:
                 // -- debug information values of ad inputs
-                lcd.setCursor(0,0);
-                lcd.print("  A0  A1  A2  A3");
-                lcd.setCursor(0,1);
-                lcd.print(leftFill(String(analogRead(0)), 4, " ") +
-                    leftFill(String(analogRead(1)), 4, " ") + 
-                    leftFill(String(analogRead(2)), 4, " ") + 
-                    leftFill(String(analogRead(3)), 4, " ") );
+                show_page_debug_advalues();
                 break;
             
             case 98:
@@ -435,6 +438,8 @@ void loop() {
     if (kbdValue != NO_KBD_PRESSED) { // key is pressed
         // Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
         alarm_on = false; 
+
+        reset_backlight_seconds = tmh.getSecondsCounter() + storage.cfg[CONF_DISP_DELAY];
 
         switch (display_page) {
             case 1 ... 2:
@@ -504,5 +509,9 @@ void loop() {
             default:
                 break;
         }
+    }
+
+    if ( (millis() - start_millis) < 20 ) {
+        delay(50);
     }
 }

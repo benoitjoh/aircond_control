@@ -83,6 +83,7 @@ uint8_t score[8] = {
 // initialize the lcd with above defined chars
 void init_lcd() {
   lcd.begin(16,2);
+  delay(20);
   lcd.createChar(1, hook);
   lcd.createChar(2, up);
   lcd.createChar(3, down);
@@ -103,4 +104,10 @@ void cursor_on() {
 void cursor_off() {
   lcd.noCursor();
   lcd.noBlink();
+}
+
+void flash(byte millis) {
+    PORTB |=  B00100000; // set led on    
+    delay(millis); // longer blink...
+    PORTB &= ~B00100000; //set pin13 to LOW 
 }

@@ -2,10 +2,16 @@
 void toggle_backlight(byte alarm_on) {
     if ( alarm_on ) {
         backlight = !backlight;
-        }
+    }
     else {
-        backlight = 1;
+        if ( tmh.getSecondsCounter() >  reset_backlight_seconds) {
+            backlight = 0;
+            }
+        else {
+            backlight = 1;
         }
+
+    }
 
     setBacklight(backlight);
 }
