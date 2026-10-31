@@ -67,6 +67,7 @@ void request_start_compressor() {
     pump_state = 1; 
     fan_state = 1;
     compressor_state = 1;
+    flash(50); 
 }
 
 
@@ -77,11 +78,14 @@ void request_stop_compressor() {
         pump_wait = storage.cfg[CONF_PUMP_WAIT];
     }
     else {
-        pump_state = 0; 
+        if ( pump_state != 2) {
+            pump_state = 0; 
+        }
         fan_state = 0;
     }
     compressor_state = 0;
 
     function_state = 0;
     valve_state = 0;
+    flash(50); 
 }

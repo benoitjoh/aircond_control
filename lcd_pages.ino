@@ -12,6 +12,17 @@ void show_page_debug_advalues() {
     leftFill(String(analogRead(3)), 4, " ") );
 }
 
+void show_page_temperatures() {
+    // -- display a0 a1 a2 a3
+    lcd.setCursor(0,0);
+    lcd.print("room  valve back");
+
+    lcd.setCursor(0,1);
+    lcd.print(leftFill(String(temp), 4, " ") +
+    leftFill(String(temp_1), 6, " ") + 
+    leftFill(String(temp_2), 5, " ")); 
+ }
+
 
 void show_page_standard() {
     // -- display normal information each second

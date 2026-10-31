@@ -186,6 +186,7 @@ void storeEEprom() {
     EEPROM.put(EE_OFFSET, storage);
     lcd.setCursor(0,1);
     lcd.print(F("data saved. "));
+    flash(50);
     delay(500);
     }
 
@@ -259,7 +260,6 @@ void loop() {
 
     if ( time_state >= 1 ) {
         // --- 100ms has passed ---- 
-        toggle_backlight(alarm_on);
 
                     
         // check manual change of run_mode 
@@ -331,14 +331,8 @@ void loop() {
                 }
             }
 
-            delayMicroseconds(50);  // very quick blink
+            delayMicroseconds(50);  // very quick blink every second
             PORTB &= ~B00100000; //set pin13 to LOW 
-
-            if ( tmh.getSec() % 5 == 0 ) {
-                init_lcd();
-            }
-
-
             
             // read sensors
 #if USE_MCP9808_SENSOR == 1
@@ -358,7 +352,7 @@ void loop() {
             else {
                 PCCtrl.set_pcc(0);
             }
-
+            byte pump_output = pump_state != 0; 
             digitalWrite(PIN_COMPRESSOR, compressor_state);
             digitalWrite(PIN_PUMP, pump_state);
             digitalWrite(PIN_VALVE, valve_state);
@@ -374,13 +368,16 @@ void loop() {
                 storeEEprom();
                 }
 
+            if ( tmh.getSec() % 10 == 0 ) {
+                // reset lcd every 10 seconds in case of comm breakdown
+                init_lcd();
+            }
             
-        } // --- 1 sec
-        
- 
+        } // --- 1 sec section ----------
+
+        toggle_backlight(alarm_on);
+
         PORTB &= ~B00100000; //set pin13 to LOW 
-
-
 
         // ---- refresh display ----------------------------------------------------------------------------
 
@@ -408,6 +405,11 @@ void loop() {
                 show_page_debug_advalues();
                 break;
             
+            case 5:
+                // -- debug information values of ad inputs
+                show_page_temperatures();
+                break;
+            
             case 98:
                 // -- set Time and date
                 cursor_on();
@@ -429,7 +431,7 @@ void loop() {
             }
 
 
-        } // --- 100ms
+    } // --- 100ms section ----------
 
 
     // ---- deal with an eventually pressed key -----------------------
@@ -438,8 +440,13 @@ void loop() {
     if (kbdValue != NO_KBD_PRESSED) { // key is pressed
         // Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
         alarm_on = false; 
+        flash(5);
 
         reset_backlight_seconds = tmh.getSecondsCounter() + storage.cfg[CONF_DISP_DELAY];
+        if ( !backlight ) {
+            // ignore first klick to switch light on
+            kbdValue = NO_KBD_PRESSED;
+        }
 
         switch (display_page) {
             case 1 ... 2:
@@ -489,13 +496,13 @@ void loop() {
                 break;
 
             case KEY_LEFTUP:
-                display_page = decrement_byte_value(display_page, 0, 4, 1); // flip through the pages
-                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                display_page = decrement_byte_value(display_page, 0, 5, 1); // flip through the pages
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 25;
                 break;
 
             case KEY_LEFTDOWN:
-                display_page = increment_byte_value(display_page, 0, 4, 1); // flip through the pages
-                resetDisplayModeSeconds = tmh.getSecondsCounter() + 15;
+                display_page = increment_byte_value(display_page, 0, 5, 1); // flip through the pages
+                resetDisplayModeSeconds = tmh.getSecondsCounter() + 25;
                 break;
 
             case KEY_ENTER_LONG:
