@@ -1,4 +1,5 @@
 
+
 void toggle_backlight(byte alarm_on) {
     if ( alarm_on ) {
         backlight = !backlight;
@@ -15,6 +16,7 @@ void toggle_backlight(byte alarm_on) {
 
     setBacklight(backlight);
 }
+
 
 // decide by the temparatur limits and the actual temp which mode is neccessary
 void set_function_by_temp_condition() {

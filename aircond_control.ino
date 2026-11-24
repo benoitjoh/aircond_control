@@ -58,6 +58,8 @@ byte compressor_state = 0; // off/on
 byte valve_state = 0; // off/on
 
 byte pump_state = 0; // 0: off / 1: on / 2: wait for off
+byte pump_output = 0; // 0: off / 1: on
+
 byte pump_wait= 0; // count down for switch of pump
 
 String run_mode_name[4] {" AUS", " EIN", "AUTO", "VENT"};
@@ -147,7 +149,7 @@ int cfg[CONF_ADDR_COUNT] = {450, -10, 9, 0, 0, 0, 0, 0, };
 #define CONF_PUMP_WAIT 3
 #define CONF_HYSTERESIS 4
 #define CONF_DISP_DELAY 5
-#define CONF_V6 6
+#define CONF_COOLER_SPEED 6
 #define CONF_V7 7
 
 
@@ -195,7 +197,7 @@ void storeEEprom() {
 
 void setup() {
     display_page = 4; // 0 means actual day.
-    resetDisplayModeSeconds = 0;
+    resetDisplayModeSeconds = 10;
 
     init_lcd(); // init and add userdefined chars
 
@@ -213,18 +215,25 @@ void setup() {
         lcd.print(F("ovewrite EEPROM?"));
         lcd.setCursor(0,1);
         lcd.print(F("  yes --> Enter "));
+
+#if ENABLE_RESET_ON_STARTUP  == 1
         byte kbdResult = kbd.wait_till_read();
         doReset = bool(kbdResult == 0);
+#else
+        doReset = false;
+#endif
         }
 
     loadEEprom(doReset, EE_OFFSET );
     setBacklight(1);
+    reset_backlight_seconds = tmh.getSecondsCounter() + 10;
 
     pinMode(13, OUTPUT);
     pinMode(PIN_COMPRESSOR, OUTPUT);
     pinMode(PIN_PUMP, OUTPUT);
     pinMode(PIN_VALVE, OUTPUT);
-    pinMode(PIN_COOLERFAN, OUTPUT);
+    pinMode(PIN_COOLERFAN_PWC, OUTPUT);
+
     
     // serial device for debugging purpose!
     Serial.begin(9600);
@@ -233,11 +242,9 @@ void setup() {
         }
 
     #if USE_MCP9808_SENSOR == 1
-        if (!mcp_tempsensor.begin(0x18)) {
-            lcd.setCursor(0,1);
-            lcd.print(F("No MCP9808 conn!"));
-            while (1);
-        }
+        mcp_tempsensor.begin(0x18);
+        mcp_tempsensor.wake();
+        
         mcp_tempsensor.setResolution(2); // sets the resolution to 0.125 °C
     #endif
 
@@ -338,25 +345,33 @@ void loop() {
 #if USE_MCP9808_SENSOR == 1
             temp = mcp_tempsensor.readTempC();
 #endif
-            temp_1 = read_pt1000(analogRead(ANALOG_TEMP_1_PIN));
-            temp_2 = read_pt1000(analogRead(ANALOG_TEMP_2_PIN));
+            temp_1 = read_pt1000_lm358(analogRead(ANALOG_TEMP_1_PIN));
+            temp_2 = read_pt1000_lm358(analogRead(ANALOG_TEMP_2_PIN));
 
             set_function_by_temp_condition();
             set_compressor_by_temp_condition();
 
 
             // generate outputs
-            if (fan_state == 1) {
-                PCCtrl.set_pcc(storage.cfg[CONF_FAN_SPEED]);
+            if ( fan_state != 0 ) {
+                int pcc_out = storage.cfg[CONF_FAN_SPEED] * 8; // 0 .. 2048
+                PCCtrl.set_pcc(pcc_out);
+                Serial.println("pcc:" + String(pcc_out));
             }
             else {
                 PCCtrl.set_pcc(0);
             }
-            byte pump_output = pump_state != 0; 
-            digitalWrite(PIN_COMPRESSOR, compressor_state);
-            digitalWrite(PIN_PUMP, pump_state);
-            digitalWrite(PIN_VALVE, valve_state);
-            digitalWrite(PIN_COOLERFAN, pump_state);
+            pump_output = pump_state != 0; 
+            digitalWrite(PIN_COMPRESSOR, byte(compressor_state));
+            digitalWrite(PIN_PUMP, byte(pump_state));
+            digitalWrite(PIN_VALVE, byte(valve_state));
+            Serial.println(" valve: " + String(valve_state) + " k: " + String(compressor_state) + " p: " + String(pump_output));
+            if ( pump_output == 1) {
+                analogWrite(PIN_COOLERFAN_PWC, byte(storage.cfg[CONF_COOLER_SPEED]));
+            }
+            else {
+                analogWrite(PIN_COOLERFAN_PWC, 0);
+            }
 
             if ( tmh.getSecondsCounter() % 3600 == 1) {
                 // ----- new hour started... 
@@ -430,10 +445,9 @@ void loop() {
             display_page = 0;
             }
 
-
+ 
     } // --- 100ms section ----------
-
-
+    
     // ---- deal with an eventually pressed key -----------------------
     kbdValue = kbd.read();
 
@@ -519,6 +533,6 @@ void loop() {
     }
 
     if ( (millis() - start_millis) < 20 ) {
-        delay(50);
+        delay(20);
     }
 }

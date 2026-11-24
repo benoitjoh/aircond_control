@@ -4,9 +4,28 @@
  */   
 
 
+
+ /*  ------------------------------------------------------------------------------------  
+ *   parameters an function to read a pt-1000 temperature via LM358 operation amplifier
+ *   
+ *  wiring see: 
+ *  https://www.aeq-web.com/pt1000-temperature-sensor-arduino-lm358-messwandler/
+*/
+#define PT_LM_VT_FACTOR 1.81
+#define PT_LM_OFFSET -23.9
+
+int read_pt1000_lm358 (int adValue) {
+  float temp_c;
+  float voltage = adValue * (5.0 / 1023.0);
+  temp_c = (((voltage * 100) / PT_LM_VT_FACTOR) + PT_LM_OFFSET);
+  return temp_c;
+}
+
+
+
  
  /*  ------------------------------------------------------------------------------------  
- *   parameters an function to read a pt-1000 temperature sensor (NTC). 
+ *   parameters an function to read a pt-1000 temperature sensor (NTC) directly. 
  *   
  *   wiring: 
  *   
