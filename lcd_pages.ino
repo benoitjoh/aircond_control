@@ -15,12 +15,12 @@ void show_page_debug_advalues() {
 void show_page_temperatures() {
     // -- display a0 a1 a2 a3
     lcd.setCursor(0,0);
-    lcd.print("room  valve back");
+    lcd.print(F("Raum    RL  Vent"));
 
     lcd.setCursor(0,1);
-    lcd.print(leftFill(String(temp), 4, " ") +
-    leftFill(String(temp_1), 6, " ") + 
-    leftFill(String(temp_2), 5, " ")); 
+    lcd.print(leftFill(String(temp, 1), 4, " ") +
+    leftFill(String(temp_rl, 1), 6, " ") + 
+    leftFill(String(temp_valve, 1), 6, " ")); 
  }
 
 

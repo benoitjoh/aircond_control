@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#define VERSION "v1.0/" __DATE__
+#define VERSION "v1.1/" __DATE__
 
 // ---- special characters   ---------------------------------------------------------------  
 #define CHAR_HOOK 1
@@ -35,12 +35,13 @@
 // alarm for second temp sensor
 // alarm limit defined in storage.cfg[CONF_TEMP_ALARM]
 boolean alarm_on = false;
+boolean alarm_reset = false;
 
 unsigned long start_millis;
 
 float temp = 22.2;
-int temp_1 = 0;
-int temp_2 = 0;
+float temp_rl = 0;
+float temp_valve = 0;
 
 // State variables
 byte run_mode = 0; // Manual setting.  0: off  1:  on  2: clock controlled 3: only fan is on
@@ -76,7 +77,7 @@ long resetDisplayModeSeconds = 0;
 long reset_backlight_seconds = 0;
 
 byte backlight = 1;
-
+byte toggle_counter = 0;
 
 // --- liquid crystal display driver from LiquidCrystal.h or LiquidCrystal_SR2W.h ---------------------------------------------
 #if USE_STANDARD_LCD_LIBRARY == 1
@@ -267,6 +268,7 @@ void loop() {
 
     if ( time_state >= 1 ) {
         // --- 100ms has passed ---- 
+        toggle_counter++;
 
                     
         // check manual change of run_mode 
@@ -345,12 +347,18 @@ void loop() {
 #if USE_MCP9808_SENSOR == 1
             temp = mcp_tempsensor.readTempC();
 #endif
-            temp_1 = read_pt1000_lm358(analogRead(ANALOG_TEMP_1_PIN));
-            temp_2 = read_pt1000_lm358(analogRead(ANALOG_TEMP_2_PIN));
+            temp_rl = read_pt1000_lm358(analogRead(ANALOG_TEMP_1_PIN));
+            // temp_valve = read_pt1000_lm358(analogRead(ANALOG_TEMP_2_PIN));
+
+
 
             set_function_by_temp_condition();
             set_compressor_by_temp_condition();
 
+            check_alarm_conditions();
+            if (alarm_on) {
+                compressor_state = 0;
+            }
 
             // generate outputs
             if ( fan_state != 0 ) {
@@ -361,11 +369,12 @@ void loop() {
             else {
                 PCCtrl.set_pcc(0);
             }
+
             pump_output = pump_state != 0; 
             digitalWrite(PIN_COMPRESSOR, byte(compressor_state));
             digitalWrite(PIN_PUMP, byte(pump_state));
             digitalWrite(PIN_VALVE, byte(valve_state));
-            Serial.println(" valve: " + String(valve_state) + " k: " + String(compressor_state) + " p: " + String(pump_output));
+            // Serial.println(" cnt: " + String(toggle_counter) + " k: " + String(compressor_state) + " p: " + String(pump_output));
             if ( pump_output == 1) {
                 analogWrite(PIN_COOLERFAN_PWC, byte(storage.cfg[CONF_COOLER_SPEED]));
             }
@@ -453,7 +462,7 @@ void loop() {
 
     if (kbdValue != NO_KBD_PRESSED) { // key is pressed
         // Serial.println("kbd:" + String(kbdValue) + " ad:" + String(kbd.getLastAdValue()));
-        alarm_on = false; 
+
         flash(5);
 
         reset_backlight_seconds = tmh.getSecondsCounter() + storage.cfg[CONF_DISP_DELAY];
@@ -485,6 +494,8 @@ void loop() {
                 storeEEprom();
                 display_page = 0;
                 cursor_off();
+                reset_alarm(); 
+
                 break;
 
             case KEY_RIGHT:
@@ -496,11 +507,11 @@ void loop() {
                 break;
 
             case KEY_UP: 
-                temp += 0.1; // for test purpose only
+                temp_valve += 1; // for test purpose only
                 break;
 
             case KEY_DOWN:
-                temp -= 0.1;  // for test purpose only        // reset fridge alarm
+                temp_valve -= 1;  // for test purpose only        // reset fridge alarm
 
                 break;
 

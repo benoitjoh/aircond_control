@@ -2,7 +2,7 @@
 
 void toggle_backlight(byte alarm_on) {
     if ( alarm_on ) {
-        backlight = !backlight;
+        backlight = (toggle_counter & B00001000) != 0; 
     }
     else {
         if ( tmh.getSecondsCounter() >  reset_backlight_seconds) {
@@ -13,10 +13,26 @@ void toggle_backlight(byte alarm_on) {
         }
 
     }
-
     setBacklight(backlight);
 }
 
+
+void check_alarm_conditions() {
+    if (int(temp_valve) < storage.cfg[CONF_TEMP_ALARM]) {
+        if (!alarm_reset) {
+            alarm_on = true;
+        }
+    }
+    else {
+        alarm_on = false;
+        alarm_reset = false;
+    }
+}
+
+void reset_alarm() {
+    alarm_on = false;
+    alarm_reset = true;
+}
 
 // decide by the temparatur limits and the actual temp which mode is neccessary
 void set_function_by_temp_condition() {
